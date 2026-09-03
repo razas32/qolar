@@ -24,6 +24,22 @@ class Item(Base):
     transactions = relationship("Transaction", back_populates="item")
 
 
+class Account(Base):
+    """A bank account under an Item (an Item = one login; e.g. chequing + Visa)."""
+
+    __tablename__ = "accounts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    item_id = Column(UUID(as_uuid=True), ForeignKey("items.id"), nullable=False)
+    plaid_account_id = Column(String, unique=True, nullable=False)
+    name = Column(String, nullable=False)
+    official_name = Column(String, nullable=True)
+    type = Column(String, nullable=True)  # depository | credit | ...
+    subtype = Column(String, nullable=True)  # checking | savings | credit card | ...
+    mask = Column(String, nullable=True)  # last 4
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Category(Base):
     """The user's own categories. Fully editable; everything else maps onto these."""
 
