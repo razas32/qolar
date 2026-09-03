@@ -5,7 +5,6 @@ from app.config import settings
 
 _ENV_HOSTS = {
     "sandbox": plaid.Environment.Sandbox,
-    "development": plaid.Environment.Development,
     "production": plaid.Environment.Production,
 }
 
