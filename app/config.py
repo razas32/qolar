@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     telegram_webhook_secret: str
 
     setup_secret: str
+    encryption_key: str
 
     class Config:
         env_file = ".env"

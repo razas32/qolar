@@ -20,16 +20,40 @@ the transaction.
    - `TELEGRAM_WEBHOOK_SECRET` / `SETUP_SECRET` — make up two random strings
      (e.g. `openssl rand -hex 32`) — these keep strangers who find your ngrok
      URL from triggering your setup endpoints or spoofing bot replies
+   - `ENCRYPTION_KEY` — generate with
+     `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
+     — encrypts the Plaid access token at rest in Postgres
 
-2. Start it:
+2. Run it. Docker Compose (`docker-compose.yml`) is provided, but this was
+   actually developed and verified running **locally** (no Docker installed
+   on the dev machine), via:
    ```
-   docker compose up --build
+   brew install postgresql@16 && brew services start postgresql@16
+   psql postgres -c "CREATE USER loonie WITH PASSWORD 'loonie';"
+   psql postgres -c "CREATE DATABASE loonie OWNER loonie;"
+
+   python3.13 -m venv .venv && source .venv/bin/activate
+   pip install -r requirements.txt
+
+   alembic upgrade head
+   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
    ```
+   If running locally (not Docker), `DATABASE_URL` in `.env` should point at
+   `localhost`, not `db`:
+   `postgresql+psycopg2://loonie:loonie@localhost:5432/loonie`
+
+   Note: `psycopg2-binary` needs a version with a prebuilt wheel for your
+   Python version — 2.9.9 has none for Python 3.13/3.14 on macOS arm64 and
+   fails building from source; 2.9.12 works. If `pip install` fails building
+   psycopg2, bump the pin in `requirements.txt`.
 
 3. Tunnel it for Plaid/Telegram webhooks during local dev:
    ```
    ngrok http 8000
    ```
+   ngrok requires a free account — sign up at ngrok.com, get your authtoken
+   from the dashboard, then `ngrok config add-authtoken <token>` once.
+
    Then set the ngrok URL + `/plaid/webhook` as your webhook in the Plaid
    dashboard, and register the Telegram webhook with the secret token so
    Telegram signs its calls (must match `TELEGRAM_WEBHOOK_SECRET` in `.env`):
@@ -37,13 +61,7 @@ the transaction.
    curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<ngrok-url>/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>"
    ```
 
-4. Run migrations:
-   ```
-   docker compose exec api alembic revision --autogenerate -m "init"
-   docker compose exec api alembic upgrade head
-   ```
-
-5. Link an account: call `POST /plaid/link-token` and `POST /plaid/exchange-token`
+4. Link an account: call `POST /plaid/link-token` and `POST /plaid/exchange-token`
    with header `X-Loonie-Setup-Secret: <SETUP_SECRET>`. Use the returned
    `link_token` with Plaid's hosted Link flow (or Plaid's quickstart HTML) to
    get a `public_token` for the exchange call.
@@ -53,13 +71,16 @@ Telegram message, and replying should update the transaction's category.
 
 ## Notes
 
-- Plaid Python SDK APIs shift between versions — if `plaid_client.py`,
-  `routers/plaid.py`, or the webhook verification in `security.py` throw on
-  unfamiliar method/model names, check the installed `plaid-python` version's
-  docs rather than assuming this code is current.
-- Access tokens are stored in plaintext in Postgres (`items.access_token`).
-  Fine for a local prototype; encrypt at rest before this ever runs anywhere
-  else, or before more than one person's bank data lives in this database.
+- Plaid Python SDK APIs shift between versions — already caught one: this
+  SDK version has no `plaid.Environment.Development` (Plaid deprecated the
+  separate Development tier; Free Trial now runs on Production with a
+  10-item cap). If `plaid_client.py`, `routers/plaid.py`, or the webhook
+  verification in `security.py` throw on unfamiliar method/model names,
+  check the installed `plaid-python` version's docs rather than assuming
+  this code is current.
+- `items.access_token` is encrypted at rest (Fernet, via `app/crypto.py`) —
+  losing `ENCRYPTION_KEY` makes all stored tokens unrecoverable, so back it
+  up somewhere other than just `.env` once this holds a real linked account.
 - `resolve_nudge` assumes a single user / single open nudge at a time — fine
   for solo prototyping, would need real matching (e.g. by Telegram message
   thread) before more than one person uses this.

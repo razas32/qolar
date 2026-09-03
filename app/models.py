@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.db import Base
+from app.crypto import EncryptedString
 
 
 class Item(Base):
@@ -15,7 +16,7 @@ class Item(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     plaid_item_id = Column(String, unique=True, nullable=False)
-    access_token = Column(String, nullable=False)
+    access_token = Column(EncryptedString, nullable=False)
     institution_name = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
