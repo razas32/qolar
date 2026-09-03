@@ -12,7 +12,7 @@ from app.config import settings
 from app.db import get_db
 from app.plaid_client import client
 from app.models import Item, Transaction
-from app.categorize import is_ambiguous
+from app.categorize import is_ambiguous, known_category
 from app.nudge import maybe_send_nudge
 from app.security import require_setup_secret, verify_plaid_webhook
 
@@ -69,6 +69,7 @@ async def plaid_webhook(db: Session = Depends(get_db), payload: dict = Depends(v
             amount=added.amount,
             date=added.date,
             is_ambiguous=ambiguous,
+            category=None if ambiguous else known_category(added.merchant_name),
         )
         db.add(transaction)
         db.commit()
