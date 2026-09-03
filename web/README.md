@@ -1,36 +1,30 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Loonie — web
 
-## Getting Started
+Next.js 16 dashboard. Read-only view of transactions and categories, served
+from Vercel at https://loonie-dashboard.vercel.app behind HTTP Basic Auth.
 
-First, run the development server:
+## How it talks to the API
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+A server component (`app/page.tsx`) calls `GET /plaid/transactions` on the
+FastAPI backend using two **server-side** env vars — `API_BASE_URL` and
+`SETUP_SECRET` — via `lib/api.ts`. Neither is ever sent to the browser.
+
+`proxy.ts` (Next 16's middleware) gates every route with Basic Auth
+(`DASHBOARD_USER` / `DASHBOARD_PASSWORD`) and fails closed if unset, since a
+Vercel deploy is public by default and this page shows real bank data.
+
+## Local dev
+
+```
+cp .env.example .env.local   # fill in: API_BASE_URL (tunnel), SETUP_SECRET (from api/.env), user/password
+npm install
+npm run dev -- --port 3100   # 3000 is usually taken on this machine
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deploy
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Pushes to `main` auto-deploy (Vercel project `loonie-dashboard`, Root
+Directory `web`). Env vars live in Vercel project settings; `API_BASE_URL`
+must be updated there — and redeployed — whenever the dev tunnel URL changes.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`vercel --prod` from this directory also works for a manual deploy.
