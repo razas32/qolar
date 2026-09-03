@@ -1,0 +1,24 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: loonie
+      POSTGRES_PASSWORD: loonie
+      POSTGRES_DB: loonie
+    ports:
+      - "5432:5432"
+    volumes:
+      - loonie_pgdata:/var/lib/postgresql/data
+
+  api:
+    build: .
+    env_file: .env
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+volumes:
+  loonie_pgdata:
