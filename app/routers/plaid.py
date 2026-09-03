@@ -10,7 +10,7 @@ from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchan
 from app.config import settings
 from app.db import get_db
 from app.plaid_client import client
-from app.models import Item
+from app.models import Item, Transaction
 from app.sync import sync_item_transactions
 from app.security import require_setup_secret, verify_plaid_webhook
 
@@ -43,6 +43,27 @@ async def exchange_token(public_token: str, db: Session = Depends(get_db)):
     db.add(item)
     db.commit()
     return {"item_id": item.plaid_item_id}
+
+
+@router.get("/transactions", dependencies=[Depends(require_setup_secret)])
+async def list_transactions(db: Session = Depends(get_db)):
+    rows = (
+        db.query(Transaction)
+        .order_by(Transaction.date.desc(), Transaction.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": str(t.id),
+            "merchant_name": t.merchant_name,
+            "amount": float(t.amount),
+            "date": t.date.isoformat(),
+            "category": t.category,
+            "is_ambiguous": t.is_ambiguous,
+            "nudge_pending": t.nudge is not None and t.nudge.resolved_at is None,
+        }
+        for t in rows
+    ]
 
 
 @router.post("/webhook")
