@@ -19,12 +19,14 @@ async def send_nudge(transaction) -> dict:
         return resp.json()["result"]
 
 
-async def send_text(text: str) -> None:
+async def send_text(text: str) -> dict:
     async with httpx.AsyncClient() as client:
-        await client.post(
+        resp = await client.post(
             f"{TELEGRAM_API}/sendMessage",
             json={"chat_id": settings.telegram_chat_id, "text": text},
         )
+        resp.raise_for_status()
+        return resp.json()["result"]
 
 
 async def confirm_category(category: str) -> None:

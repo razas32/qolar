@@ -42,6 +42,7 @@ class MerchantClassification(BaseModel):
 class ReplyNormalization(BaseModel):
     category: str | None
     confidence: Literal["HIGH", "MEDIUM", "LOW"]
+    user_is_unsure: bool  # they said they don't know -- a real answer, not a parse failure
 
 
 _CODES_TEXT = "\n".join(sorted(DEFAULT_MAPPING))
@@ -76,10 +77,11 @@ def classify_merchant(merchant_name: str | None, description: str | None) -> tup
     return result.plaid_code, result.confidence
 
 
-def normalize_reply(reply: str, category_names: list[str]) -> str | None:
-    """Map a free-text reply to one of the user's category names, or None."""
+def normalize_reply(reply: str, category_names: list[str]) -> tuple[str | None, bool]:
+    """Map a free-text reply to one of the user's category names.
+    Returns (category_name_or_None, user_is_unsure)."""
     if not is_enabled():
-        return None
+        return None, False
 
     response = _get_client().messages.parse(
         model=MODEL,
@@ -89,13 +91,20 @@ def normalize_reply(reply: str, category_names: list[str]) -> str | None:
             "A user was asked what a bank transaction was for and replied in "
             "free text. Map the reply onto exactly one of their categories, or "
             "null if none fits. Prefer a category over null when the intent is "
-            "reasonably clear (e.g. 'gym sesh' -> Fitness, 'rent' -> Housing). "
+            "reasonably clear (e.g. 'gym sesh' -> Fitness, 'rent' -> Housing, "
+            "'my roommate paid me back' -> Income). If the user is saying they "
+            "don't know or can't remember ('not sure', 'idk', 'no idea', "
+            "'skip'), set user_is_unsure to true and category to null.\n"
             "Categories:\n" + "\n".join(category_names)
         ),
         messages=[{"role": "user", "content": reply}],
         output_format=ReplyNormalization,
     )
     result = response.parsed_output
-    if result is None or result.category not in category_names or result.confidence == "LOW":
-        return None
-    return result.category
+    if result is None:
+        return None, False
+    if result.user_is_unsure:
+        return None, True
+    if result.category not in category_names or result.confidence == "LOW":
+        return None, False
+    return result.category, False
