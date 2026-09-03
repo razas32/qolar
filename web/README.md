@@ -23,8 +23,18 @@ npm run dev -- --port 3100   # 3000 is usually taken on this machine
 
 ## Deploy
 
-Pushes to `main` auto-deploy (Vercel project `loonie-dashboard`, Root
-Directory `web`). Env vars live in Vercel project settings; `API_BASE_URL`
-must be updated there — and redeployed — whenever the dev tunnel URL changes.
+```
+./deploy.sh
+```
 
-`vercel --prod` from this directory also works for a manual deploy.
+Vercel project `loonie-dashboard`, Root Directory `web`, linked at the
+monorepo root (`../.vercel`). Env vars live in Vercel project settings;
+`API_BASE_URL` must be updated there — and redeployed — whenever the dev
+tunnel URL changes.
+
+Don't run plain `vercel --prod` from inside the checkout: this machine's git
+`user.email` is a placeholder, and Vercel blocks any deployment whose commit
+author it can't match to the account — the CLI then hangs on the blocked
+build. `deploy.sh` stages a git-free copy so no author is attached. Git
+auto-deploy on push is off for the same reason; fixing `git config
+user.email` and connecting GitHub in Vercel account settings would enable it.
