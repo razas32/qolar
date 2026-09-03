@@ -4,19 +4,25 @@ from plaid.model.transactions_sync_request import TransactionsSyncRequest
 
 from app.plaid_client import client
 from app.models import Item, Transaction
-from app.categorize import is_ambiguous, known_category
+from app import categorize
 from app.nudge import maybe_send_nudge
 
-# Deliberately simple for the first slice: only handles `added` transactions.
-# `modified` and `removed` are ignored -- a real transaction that gets
-# corrected or reversed at the bank won't be reflected here yet. Fine for
-# proving the categorization loop; would need handling before this is
-# trusted as an accurate ledger.
+# First slice: only `added` is persisted. `modified`/`removed` are ignored,
+# so a bank-side correction or reversal won't be reflected yet.
 
 
-async def sync_item_transactions(item: Item, db: Session) -> int:
-    # Plaid's SDK rejects cursor=None outright -- must be omitted entirely
-    # on the first sync rather than passed as null.
+def _fill_plaid_fields(txn: Transaction, added) -> None:
+    pfc = added.personal_finance_category
+    txn.account_id = added.account_id
+    txn.description = added.name
+    txn.pending = bool(added.pending)
+    txn.plaid_category_primary = pfc.primary if pfc else None
+    txn.plaid_category_detailed = pfc.detailed if pfc else None
+    txn.plaid_confidence = getattr(pfc, "confidence_level", None) if pfc else None
+
+
+async def sync_item_transactions(item: Item, db: Session, *, send_nudges: bool = True) -> int:
+    # Plaid's SDK rejects cursor=None outright -- must be omitted on first sync.
     kwargs = {"access_token": item.access_token}
     if item.cursor:
         kwargs["cursor"] = item.cursor
@@ -24,33 +30,39 @@ async def sync_item_transactions(item: Item, db: Session) -> int:
 
     added_count = 0
     for added in response.added:
-        exists = (
+        txn = (
             db.query(Transaction)
             .filter(Transaction.plaid_transaction_id == added.transaction_id)
             .first()
         )
-        if exists:
+        if txn:
+            # Already known -- just make sure the Plaid metadata is present
+            # (rows from before these columns existed have none).
+            if txn.plaid_category_detailed is None:
+                _fill_plaid_fields(txn, added)
+                db.commit()
             continue
 
-        ambiguous = is_ambiguous(added.merchant_name)
-        transaction = Transaction(
+        txn = Transaction(
             item_id=item.id,
             plaid_transaction_id=added.transaction_id,
             merchant_name=added.merchant_name,
             amount=added.amount,
             date=added.date,
-            is_ambiguous=ambiguous,
-            category=None if ambiguous else known_category(added.merchant_name),
         )
-        db.add(transaction)
+        _fill_plaid_fields(txn, added)
+        db.add(txn)
+        db.flush()
+
+        decision = categorize.decide(db, txn)
+        categorize.apply(db, txn, decision)
         db.commit()
-        db.refresh(transaction)
+        db.refresh(txn)
         added_count += 1
 
-        if ambiguous:
-            await maybe_send_nudge(transaction, db)
+        if decision.ask and send_nudges:
+            await maybe_send_nudge(txn, db)
 
     item.cursor = response.next_cursor
     db.commit()
-
     return added_count

@@ -84,3 +84,27 @@ Telegram message, and replying should update the transaction's category.
 - `resolve_nudge` assumes a single user / single open nudge at a time — fine
   for solo prototyping, would need real matching (e.g. by Telegram message
   thread) before more than one person uses this.
+
+## Categorization
+
+`app/categorize.py` walks a ladder, cheapest signal first, and stops at the
+first hit: user override → learned override → merchant type (Plaid's tag, or
+a cached LLM lookup) mapped through the user's `category_mappings` → LLM
+classification → ask via Telegram. Two kinds of knowledge are kept apart:
+
+- **Global facts** (`merchant_types`): what a merchant *is*, as a Plaid
+  taxonomy code. Shared across users; each merchant is classified once, ever.
+- **Per-user preferences** (`categories`, `category_mappings`,
+  `merchant_overrides`, `reply_synonyms`): what *you* call it. Renaming or
+  lumping categories rewrites the mapping and never re-consults a model.
+
+Plaid codes in `ASK_CODES` (online marketplaces, superstores) always ask
+unless an override exists — that's Amazon/Walmart/Costco without hardcoding.
+
+The LLM (`app/llm.py`, `claude-opus-5`) is optional: set `ANTHROPIC_API_KEY`
+to enable merchant classification and free-text reply normalization. Without
+it, replies must roughly match a category name.
+
+- `python3 -m scripts.recategorize [--nudge]` — seed defaults and re-run the
+  ladder over everything not already user/nudge-categorized. Prints a
+  before/after and lists what still needs a nudge.

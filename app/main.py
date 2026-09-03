@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.routers import plaid, telegram
+from app.routers import categories, plaid, telegram
 
 app = FastAPI(title="Loonie")
 
@@ -35,6 +35,7 @@ async def limit_request_body_size(request: Request, call_next):
 
 app.include_router(plaid.router)
 app.include_router(telegram.router)
+app.include_router(categories.router)
 
 
 @app.get("/health")

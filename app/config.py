@@ -17,6 +17,10 @@ class Settings(BaseSettings):
 
     webhook_base_url: str
 
+    # Optional: enables the LLM merchant-classification and reply-normalization
+    # steps. Everything else works without it.
+    anthropic_api_key: str | None = None
+
     class Config:
         env_file = ".env"
 
