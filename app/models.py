@@ -18,6 +18,7 @@ class Item(Base):
     plaid_item_id = Column(String, unique=True, nullable=False)
     access_token = Column(EncryptedString, nullable=False)
     institution_name = Column(String)
+    cursor = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     transactions = relationship("Transaction", back_populates="item")

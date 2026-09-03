@@ -6,14 +6,12 @@ from plaid.model.link_token_create_request_user import LinkTokenCreateRequestUse
 from plaid.model.products import Products
 from plaid.model.country_code import CountryCode
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
-from plaid.model.transactions_sync_request import TransactionsSyncRequest
 
 from app.config import settings
 from app.db import get_db
 from app.plaid_client import client
-from app.models import Item, Transaction
-from app.categorize import is_ambiguous, known_category
-from app.nudge import maybe_send_nudge
+from app.models import Item
+from app.sync import sync_item_transactions
 from app.security import require_setup_secret, verify_plaid_webhook
 
 router = APIRouter(prefix="/plaid", tags=["plaid"])
@@ -57,25 +55,5 @@ async def plaid_webhook(db: Session = Depends(get_db), payload: dict = Depends(v
     if item is None:
         return {"ok": True}
 
-    request = TransactionsSyncRequest(access_token=item.access_token)
-    response = client.transactions_sync(request)
-
-    for added in response.added:
-        ambiguous = is_ambiguous(added.merchant_name)
-        transaction = Transaction(
-            item_id=item.id,
-            plaid_transaction_id=added.transaction_id,
-            merchant_name=added.merchant_name,
-            amount=added.amount,
-            date=added.date,
-            is_ambiguous=ambiguous,
-            category=None if ambiguous else known_category(added.merchant_name),
-        )
-        db.add(transaction)
-        db.commit()
-        db.refresh(transaction)
-
-        if ambiguous:
-            await maybe_send_nudge(transaction, db)
-
-    return {"ok": True, "added": len(response.added)}
+    added_count = await sync_item_transactions(item, db)
+    return {"ok": True, "added": added_count}
