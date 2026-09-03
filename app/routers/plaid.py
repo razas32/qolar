@@ -13,11 +13,12 @@ from app.plaid_client import client
 from app.models import Item, Transaction
 from app.categorize import is_ambiguous
 from app.nudge import maybe_send_nudge
+from app.security import require_setup_secret, verify_plaid_webhook
 
 router = APIRouter(prefix="/plaid", tags=["plaid"])
 
 
-@router.post("/link-token")
+@router.post("/link-token", dependencies=[Depends(require_setup_secret)])
 async def create_link_token():
     request = LinkTokenCreateRequest(
         user=LinkTokenCreateRequestUser(client_user_id="loonie-single-user"),
@@ -30,7 +31,7 @@ async def create_link_token():
     return {"link_token": response.link_token}
 
 
-@router.post("/exchange-token")
+@router.post("/exchange-token", dependencies=[Depends(require_setup_secret)])
 async def exchange_token(public_token: str, db: Session = Depends(get_db)):
     response = client.item_public_token_exchange(
         ItemPublicTokenExchangeRequest(public_token=public_token)
@@ -45,7 +46,7 @@ async def exchange_token(public_token: str, db: Session = Depends(get_db)):
 
 
 @router.post("/webhook")
-async def plaid_webhook(payload: dict, db: Session = Depends(get_db)):
+async def plaid_webhook(db: Session = Depends(get_db), payload: dict = Depends(verify_plaid_webhook)):
     if payload.get("webhook_type") != "TRANSACTIONS":
         return {"ok": True}
 

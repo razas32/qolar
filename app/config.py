@@ -10,6 +10,9 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str
     telegram_chat_id: str
+    telegram_webhook_secret: str
+
+    setup_secret: str
 
     class Config:
         env_file = ".env"
