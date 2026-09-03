@@ -1,69 +1,142 @@
-import Image from "next/image";
+import { fetchTransactions, type Transaction } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-export default function Home() {
+const cad = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: "CAD",
+});
+
+function formatDate(iso: string) {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-CA", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function CategoryBadge({ t }: { t: Transaction }) {
+  if (t.nudge_pending) {
+    return (
+      <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-200">
+        Awaiting reply
+      </Badge>
+    );
+  }
+  if (t.category) {
+    return <Badge variant="secondary">{t.category}</Badge>;
+  }
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <Badge variant="outline" className="text-muted-foreground">
+      Uncategorized
+    </Badge>
+  );
+}
+
+export default async function Home() {
+  const transactions = await fetchTransactions();
+
+  // Plaid convention: positive = money out, negative = refund/credit.
+  const spent = transactions
+    .filter((t) => t.amount > 0)
+    .reduce((sum, t) => sum + t.amount, 0);
+  const categorized = transactions.filter((t) => t.category).length;
+  const pending = transactions.filter((t) => t.nudge_pending).length;
+
+  return (
+    <main className="mx-auto max-w-5xl px-6 py-10">
+      <header className="mb-8 flex items-baseline justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Loonie</h1>
+          <p className="text-sm text-muted-foreground">
+            {transactions.length} transactions synced
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </header>
+
+      <div className="mb-8 grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total spent
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold tabular-nums">{cad.format(spent)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Categorized
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold tabular-nums">
+              {categorized}
+              <span className="text-base font-normal text-muted-foreground">
+                {" "}/ {transactions.length}
+              </span>
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Awaiting your reply
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-semibold tabular-nums">{pending}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[130px]">Date</TableHead>
+              <TableHead>Merchant</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {transactions.map((t) => (
+              <TableRow key={t.id}>
+                <TableCell className="text-muted-foreground">
+                  {formatDate(t.date)}
+                </TableCell>
+                <TableCell className="font-medium">
+                  {t.merchant_name ?? (
+                    <span className="text-muted-foreground">Unknown merchant</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <CategoryBadge t={t} />
+                </TableCell>
+                <TableCell
+                  className={`text-right tabular-nums ${
+                    t.amount < 0 ? "text-emerald-600 dark:text-emerald-400" : ""
+                  }`}
+                >
+                  {t.amount < 0 ? "+" : ""}
+                  {cad.format(Math.abs(t.amount))}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+    </main>
   );
 }
