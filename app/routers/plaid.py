@@ -8,6 +8,7 @@ from plaid.model.country_code import CountryCode
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
 
+from app.config import settings
 from app.db import get_db
 from app.plaid_client import client
 from app.models import Item, Transaction
@@ -26,6 +27,7 @@ async def create_link_token():
         products=[Products("transactions")],
         country_codes=[CountryCode("CA")],
         language="en",
+        webhook=f"{settings.webhook_base_url}/plaid/webhook",
     )
     response = client.link_token_create(request)
     return {"link_token": response.link_token}

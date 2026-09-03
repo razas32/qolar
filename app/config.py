@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     setup_secret: str
     encryption_key: str
 
+    webhook_base_url: str
+
     class Config:
         env_file = ".env"
 
