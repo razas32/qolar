@@ -56,7 +56,9 @@ export function Filters({ month, account, category, accounts, categories, minMon
 
       <Select value={account} onValueChange={(v) => set({ account: v })}>
         <SelectTrigger size="sm" className="min-w-[14rem]" aria-label="Account">
-          <SelectValue placeholder="All accounts" />
+          <SelectValue placeholder="All accounts">
+            {account === ALL ? "All accounts" : accounts.find((a) => a.id === account)?.label ?? "Account"}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>All accounts</SelectItem>
@@ -71,7 +73,15 @@ export function Filters({ month, account, category, accounts, categories, minMon
       {category !== undefined && categories && (
         <Select value={category} onValueChange={(v) => set({ category: v })}>
           <SelectTrigger size="sm" className="min-w-[12rem]" aria-label="Category">
-            <SelectValue placeholder="All categories" />
+            <SelectValue placeholder="All categories">
+              {category === ALL
+                ? "All categories"
+                : category === "__uncategorized__"
+                  ? "Uncategorized"
+                  : category === "__attention__"
+                    ? "Needs attention"
+                    : category}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>All categories</SelectItem>
