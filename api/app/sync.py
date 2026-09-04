@@ -6,6 +6,7 @@ from app.plaid_client import client
 from app.models import Item, Transaction
 from app import categorize
 from app.nudge import maybe_send_nudge
+from app.transfers import match_transfers
 
 # First slice: only `added` is persisted. `modified`/`removed` are ignored,
 # so a bank-side correction or reversal won't be reflected yet.
@@ -29,6 +30,7 @@ async def sync_item_transactions(item: Item, db: Session, *, send_nudges: bool =
     response = client.transactions_sync(TransactionsSyncRequest(**kwargs))
 
     added_count = 0
+    to_ask: list[Transaction] = []
     for added in response.added:
         txn = (
             db.query(Transaction)
@@ -59,9 +61,19 @@ async def sync_item_transactions(item: Item, db: Session, *, send_nudges: bool =
         db.commit()
         db.refresh(txn)
         added_count += 1
+        if decision.ask:
+            to_ask.append(txn)
 
-        if decision.ask and send_nudges:
-            await maybe_send_nudge(txn, db)
+    # A new row may be the other side of a transfer we already hold (or vice
+    # versa). Match before asking, so an autopay never becomes a question.
+    if added_count:
+        match_transfers(db)
+
+    if send_nudges:
+        for txn in to_ask:
+            db.refresh(txn)
+            if txn.is_ambiguous:
+                await maybe_send_nudge(txn, db)
 
     item.cursor = response.next_cursor
     db.commit()

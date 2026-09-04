@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app import categorize
 from app.models import Transaction
 from app.nudge import maybe_send_nudge
+from app.transfers import match_transfers
 
 # Sources that represent a human decision; the ladder never overrides these.
 KEEP = {"user", "nudge"}
@@ -26,9 +27,16 @@ async def recategorize_all(db: Session, *, send_nudges: bool = False, include_ke
         categorize.apply(db, txn, decision)
         txn.category = txn.category_ref.name if txn.category_ref else None
         touched += 1
-        if decision.ask and send_nudges:
-            await maybe_send_nudge(txn, db)
     db.commit()
+
+    # Signals the merchant name can't give: same amount, opposite sign, other
+    # account, same day -> both sides are a transfer between your own accounts.
+    matched = match_transfers(db)
+
+    if send_nudges:
+        for txn in rows:
+            if txn.is_ambiguous:
+                await maybe_send_nudge(txn, db)
 
     by_category = Counter((t.category_ref.name if t.category_ref else None) for t in rows)
     by_source = Counter(t.category_source for t in rows)
@@ -36,6 +44,7 @@ async def recategorize_all(db: Session, *, send_nudges: bool = False, include_ke
     return {
         "total": len(rows),
         "re_evaluated": touched,
+        "transfers_matched": matched,
         "by_category": {(k or "uncategorized"): v for k, v in by_category.items()},
         "by_source": {(k or "none"): v for k, v in by_source.items()},
         "needs_nudge": len(asks),
