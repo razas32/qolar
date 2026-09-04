@@ -1,142 +1,101 @@
-import { fetchTransactions, type Transaction } from "@/lib/api";
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Filters } from "@/components/filters";
+import { SpendChart, type CategoryTotal } from "@/components/spend-chart";
+import { TransactionsTable } from "@/components/transactions-table";
+import { fetchAccounts, fetchCategories, fetchTransactions } from "@/lib/api";
+import { currentMonthKey, isCredit, money, monthKey } from "@/lib/format";
 
-const cad = new Intl.NumberFormat("en-CA", {
-  style: "currency",
-  currency: "CAD",
-});
+type Search = { month?: string; account?: string };
 
-function formatDate(iso: string) {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-CA", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function CategoryBadge({ t }: { t: Transaction }) {
-  if (t.nudge_pending) {
-    return (
-      <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-200">
-        Awaiting reply
-      </Badge>
-    );
-  }
-  if (t.category) {
-    return <Badge variant="secondary">{t.category}</Badge>;
-  }
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <Badge variant="outline" className="text-muted-foreground">
-      Uncategorized
-    </Badge>
+    <Card>
+      <CardHeader className="pb-1">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-2xl font-semibold tabular-nums">{value}</p>
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      </CardContent>
+    </Card>
   );
 }
 
-export default async function Home() {
-  const transactions = await fetchTransactions();
+export default async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
+  const sp = await searchParams;
+  const [all, accounts, categories] = await Promise.all([fetchTransactions(), fetchAccounts(), fetchCategories()]);
 
-  // Plaid convention: positive = money out, negative = refund/credit.
-  const spent = transactions
-    .filter((t) => t.amount > 0)
-    .reduce((sum, t) => sum + t.amount, 0);
-  const categorized = transactions.filter((t) => t.category).length;
-  const pending = transactions.filter((t) => t.nudge_pending).length;
+  const months = [...new Set(all.map((t) => monthKey(t.date)))].sort();
+  const month = sp.month ?? (months.includes(currentMonthKey()) ? currentMonthKey() : months.at(-1) ?? "all");
+  const account = sp.account ?? "all";
+
+  const rows = all.filter(
+    (t) => (month === "all" || monthKey(t.date) === month) && (account === "all" || t.account_id === account),
+  );
+
+  // Spend = money out, excluding transfers between your own accounts (credit
+  // card payments etc.) so the total reflects actual consumption.
+  const isTransfer = (c: string | null) => c === "Transfers";
+  const spent = rows.filter((t) => !isCredit(t.amount) && !isTransfer(t.category)).reduce((s, t) => s + t.amount, 0);
+  const cameIn = rows.filter((t) => isCredit(t.amount) && !isTransfer(t.category)).reduce((s, t) => s - t.amount, 0);
+  const needsAttention = rows.filter((t) => t.is_ambiguous || !t.category).length;
+
+  const byCategory = new Map<string, CategoryTotal>();
+  for (const t of rows) {
+    if (isCredit(t.amount) || isTransfer(t.category)) continue;
+    const name = t.category ?? "Uncategorized";
+    const cur = byCategory.get(name) ?? { name, spent: 0, count: 0 };
+    cur.spent += t.amount;
+    cur.count += 1;
+    byCategory.set(name, cur);
+  }
+  const chart = [...byCategory.values()].sort((a, b) => b.spent - a.spent);
+
+  const qs = (extra: Record<string, string>) => {
+    const p = new URLSearchParams();
+    if (month !== "all") p.set("month", month);
+    if (account !== "all") p.set("account", account);
+    for (const [k, v] of Object.entries(extra)) p.set(k, v);
+    return `?${p.toString()}`;
+  };
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <header className="mb-8 flex items-baseline justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Loonie</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
           <p className="text-sm text-muted-foreground">
-            {transactions.length} transactions synced
+            {rows.length} transactions · {accounts.length} account{accounts.length === 1 ? "" : "s"}
           </p>
         </div>
-      </header>
+        <Filters month={month} account={account} accounts={accounts} minMonth={months[0]} />
+      </div>
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total spent
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold tabular-nums">{cad.format(spent)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Categorized
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold tabular-nums">
-              {categorized}
-              <span className="text-base font-normal text-muted-foreground">
-                {" "}/ {transactions.length}
-              </span>
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Awaiting your reply
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold tabular-nums">{pending}</p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Stat label="Spent" value={money(spent)} hint="excludes transfers" />
+        <Stat label="Came in" value={money(cameIn)} hint="excludes transfers" />
+        <Link href={`/transactions${qs({ category: "__attention__" })}`}>
+          <Stat label="Needs attention" value={String(needsAttention)} hint={needsAttention ? "click to review" : "all sorted"} />
+        </Link>
       </div>
 
       <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[130px]">Date</TableHead>
-              <TableHead>Merchant</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {transactions.map((t) => (
-              <TableRow key={t.id}>
-                <TableCell className="text-muted-foreground">
-                  {formatDate(t.date)}
-                </TableCell>
-                <TableCell className="font-medium">
-                  {t.merchant_name ?? (
-                    <span className="text-muted-foreground">Unknown merchant</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <CategoryBadge t={t} />
-                </TableCell>
-                <TableCell
-                  className={`text-right tabular-nums ${
-                    t.amount < 0 ? "text-emerald-600 dark:text-emerald-400" : ""
-                  }`}
-                >
-                  {t.amount < 0 ? "+" : ""}
-                  {cad.format(Math.abs(t.amount))}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <CardHeader>
+          <CardTitle className="text-base">Spend by category</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SpendChart data={chart} linkBase={`/transactions${qs({})}`} />
+        </CardContent>
       </Card>
-    </main>
+
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-base font-semibold">Recent</h2>
+        <Link href={`/transactions${qs({})}`} className="text-sm text-muted-foreground hover:underline">
+          All transactions →
+        </Link>
+      </div>
+      <TransactionsTable transactions={rows.slice(0, 10)} categories={categories} showAccount={account === "all"} />
+    </div>
   );
 }
