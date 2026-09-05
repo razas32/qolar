@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     # steps. Everything else works without it.
     anthropic_api_key: str | None = None
 
+    # Set by Vercel for scheduled invocations of /cron/*.
+    cron_secret: str | None = None
+
     class Config:
         env_file = ".env"
 
