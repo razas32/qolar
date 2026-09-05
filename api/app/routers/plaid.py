@@ -54,8 +54,8 @@ def _account_label(acc: Account | None) -> str | None:
 @router.post("/link-token", dependencies=[Depends(require_setup_secret)])
 async def create_link_token():
     request = LinkTokenCreateRequest(
-        user=LinkTokenCreateRequestUser(client_user_id="loonie-single-user"),
-        client_name="Loonie",
+        user=LinkTokenCreateRequestUser(client_user_id="qolar-single-user"),
+        client_name="Qolar",
         products=[Products("transactions")],
         country_codes=[CountryCode("CA")],
         language="en",

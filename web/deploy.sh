@@ -12,7 +12,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-STAGE="$(mktemp -d /tmp/loonie-deploy.XXXXXX)"
+STAGE="$(mktemp -d /tmp/qolar-deploy.XXXXXX)"
 trap 'rm -rf "$STAGE"' EXIT
 
 mkdir -p "$STAGE/web"

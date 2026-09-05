@@ -16,7 +16,7 @@ export function Nav() {
     <header className="border-b bg-background">
       <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-3">
         <Link href="/" className="text-lg font-semibold tracking-tight">
-          Loonie
+          Qolar
         </Link>
         <nav className="flex gap-1">
           {links.map((l) => {

@@ -1,7 +1,7 @@
-# Loonie — web
+# Qolar — web
 
 Next.js 16 dashboard. Read-only view of transactions and categories, served
-from Vercel at https://loonie-dashboard.vercel.app behind HTTP Basic Auth.
+from Vercel at https://qolar-dashboard.vercel.app behind HTTP Basic Auth.
 
 ## How it talks to the API
 
@@ -27,7 +27,7 @@ npm run dev -- --port 3100   # 3000 is usually taken on this machine
 ./deploy.sh
 ```
 
-Vercel project `loonie-dashboard`, Root Directory `web`, linked at the
+Vercel project `qolar-dashboard`, Root Directory `web`, linked at the
 monorepo root (`../.vercel`). Env vars live in Vercel project settings;
 `API_BASE_URL` must be updated there — and redeployed — whenever the dev
 tunnel URL changes.

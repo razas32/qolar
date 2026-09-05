@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Browser -> Loonie API, with the setup secret added server-side. Only the
+ * Browser -> Qolar API, with the setup secret added server-side. Only the
  * paths the dashboard actually uses are forwarded; everything else is 404.
  * proxy.ts (Basic Auth) already gates this route like every other.
  */
@@ -34,7 +34,7 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   const upstream = await fetch(`${base}/${path.map(encodeURIComponent).join("/")}`, {
     method: req.method,
     headers: {
-      "X-Loonie-Setup-Secret": secret,
+      "X-Qolar-Setup-Secret": secret,
       ...(body ? { "Content-Type": "application/json" } : {}),
     },
     body: body || undefined,

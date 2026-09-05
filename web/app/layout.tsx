@@ -6,7 +6,7 @@ import { Nav } from "@/components/nav";
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 
 export const metadata: Metadata = {
-  title: "Loonie",
+  title: "Qolar",
   description: "Transactions, categorized.",
   robots: { index: false, follow: false },
 };

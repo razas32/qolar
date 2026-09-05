@@ -48,7 +48,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
       <TransactionsTable transactions={rows} categories={categories} showAccount={account === "all"} />
 
       <p className="text-xs text-muted-foreground">
-        Changing a category here also teaches Loonie that merchant — it won&apos;t ask about it again.
+        Changing a category here also teaches Qolar that merchant — it won&apos;t ask about it again.
       </p>
     </div>
   );

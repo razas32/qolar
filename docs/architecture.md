@@ -59,7 +59,7 @@ skipped and nudge replies must roughly match a category name.
 
 ## Security posture (dev)
 
-- Setup endpoints: `X-Loonie-Setup-Secret` (constant-time compare).
+- Setup endpoints: `X-Qolar-Setup-Secret` (constant-time compare).
 - Plaid webhook: JWT signature + body hash verified per request; keys not cached.
 - Telegram webhook: secret token header + sender chat-id check.
 - Plaid access tokens encrypted at rest (Fernet). Losing `ENCRYPTION_KEY`

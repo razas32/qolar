@@ -82,7 +82,7 @@ export default function ConnectPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Connect a card</h1>
         <p className="text-sm text-muted-foreground">
-          Your bank login happens inside Plaid&apos;s secure window — it never touches Loonie.
+          Your bank login happens inside Plaid&apos;s secure window — it never touches Qolar.
         </p>
       </div>
 

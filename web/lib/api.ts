@@ -44,7 +44,7 @@ export type Rules = {
 };
 
 /**
- * Server-only: reads the Loonie API through the setup secret. Both env vars
+ * Server-only: reads the Qolar API through the setup secret. Both env vars
  * stay on the server -- nothing here is ever shipped to the browser.
  */
 function config() {
@@ -59,7 +59,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   const res = await fetch(`${base}${path}`, {
     ...init,
     headers: {
-      "X-Loonie-Setup-Secret": secret,
+      "X-Qolar-Setup-Secret": secret,
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
       ...(init?.headers ?? {}),
     },

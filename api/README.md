@@ -1,4 +1,4 @@
-# Loonie
+# Qolar
 
 Prototype: Plaid → Postgres → Telegram nudge loop for ambiguous-merchant categorization.
 
@@ -29,8 +29,8 @@ the transaction.
    on the dev machine), via:
    ```
    brew install postgresql@16 && brew services start postgresql@16
-   psql postgres -c "CREATE USER loonie WITH PASSWORD 'loonie';"
-   psql postgres -c "CREATE DATABASE loonie OWNER loonie;"
+   psql postgres -c "CREATE USER qolar WITH PASSWORD 'qolar';"
+   psql postgres -c "CREATE DATABASE qolar OWNER qolar;"
 
    python3.13 -m venv .venv && source .venv/bin/activate
    pip install -r requirements.txt
@@ -40,7 +40,7 @@ the transaction.
    ```
    If running locally (not Docker), `DATABASE_URL` in `.env` should point at
    `localhost`, not `db`:
-   `postgresql+psycopg2://loonie:loonie@localhost:5432/loonie`
+   `postgresql+psycopg2://qolar:qolar@localhost:5432/qolar`
 
    Note: `psycopg2-binary` needs a version with a prebuilt wheel for your
    Python version — 2.9.9 has none for Python 3.13/3.14 on macOS arm64 and
@@ -62,7 +62,7 @@ the transaction.
    ```
 
 4. Link an account: call `POST /plaid/link-token` and `POST /plaid/exchange-token`
-   with header `X-Loonie-Setup-Secret: <SETUP_SECRET>`. Use the returned
+   with header `X-Qolar-Setup-Secret: <SETUP_SECRET>`. Use the returned
    `link_token` with Plaid's hosted Link flow (or Plaid's quickstart HTML) to
    get a `public_token` for the exchange call.
 

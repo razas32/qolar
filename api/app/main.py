@@ -4,18 +4,18 @@ from fastapi.responses import JSONResponse
 
 from app.routers import categories, plaid, telegram
 
-app = FastAPI(title="Loonie")
+app = FastAPI(title="Qolar")
 
 # Dev-only: lets link_test.html (opened as a local file, so the browser sends
 # Origin: null) call the setup endpoints directly. Every route it touches is
-# already behind X-Loonie-Setup-Secret, so this doesn't open anything up on
+# already behind X-Qolar-Setup-Secret, so this doesn't open anything up on
 # its own -- but it's still scoped to "null" rather than "*", and should be
 # dropped entirely once there's a real frontend with a known origin.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["null"],
     allow_methods=["POST"],
-    allow_headers=["X-Loonie-Setup-Secret", "Content-Type"],
+    allow_headers=["X-Qolar-Setup-Secret", "Content-Type"],
 )
 
 # All bodies this service ever expects (webhook payloads, setup calls) are a

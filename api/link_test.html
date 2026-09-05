@@ -2,11 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Loonie — Link a bank account (dev test page)</title>
+  <title>Qolar — Link a bank account (dev test page)</title>
   <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
 </head>
 <body style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 60px auto;">
-  <h2>Loonie — dev test page</h2>
+  <h2>Qolar — dev test page</h2>
   <p>Not part of the app. Just wires up Plaid Link locally so we can test the
      nudge loop end-to-end.</p>
 
@@ -31,7 +31,7 @@
       log('Requesting link_token...');
       const tokenResp = await fetch(`${apiBase}/plaid/link-token`, {
         method: 'POST',
-        headers: { 'X-Loonie-Setup-Secret': setupSecret },
+        headers: { 'X-Qolar-Setup-Secret': setupSecret },
       });
       if (!tokenResp.ok) {
         log('Failed to get link_token: ' + tokenResp.status + ' ' + await tokenResp.text());
@@ -47,7 +47,7 @@
           log('Exchanging public_token...');
           const exchangeResp = await fetch(`${apiBase}/plaid/exchange-token?public_token=${encodeURIComponent(public_token)}`, {
             method: 'POST',
-            headers: { 'X-Loonie-Setup-Secret': setupSecret },
+            headers: { 'X-Qolar-Setup-Secret': setupSecret },
           });
           const result = await exchangeResp.json();
           log('Exchange result: ' + JSON.stringify(result));

@@ -1,7 +1,15 @@
 # Naming — working notes
 
-Working name is **Loonie**. It is not usable publicly (see below). Nothing is
-decided. This is the record of what's been checked so it isn't re-done.
+**Decided 2026-09-04: Qolar.** Coined (a riff on *polar*); Canadian register
+clear in classes 9/36/42; only other user is a near-dormant B2B gold-loan
+software company in Bengaluru. `qolar.app` registered (Cloudflare), `qolar.ca`
+free at CIRA as of writing, `qolar.com` is squatted (Dynadot, 2016 — not
+needed). The Canadian half of the brand is carried by the polar-bear (toonie)
+mascot, the Q by the "cool for the rest of the world" half.
+
+Before that, the working name was **Loonie**, which is not usable publicly
+(see below). Everything below is the record of what was checked so it isn't
+re-done.
 
 ## Constraints that emerged
 

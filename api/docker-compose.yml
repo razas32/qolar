@@ -2,13 +2,13 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_USER: loonie
-      POSTGRES_PASSWORD: loonie
-      POSTGRES_DB: loonie
+      POSTGRES_USER: qolar
+      POSTGRES_PASSWORD: qolar
+      POSTGRES_DB: qolar
     ports:
       - "5432:5432"
     volumes:
-      - loonie_pgdata:/var/lib/postgresql/data
+      - qolar_pgdata:/var/lib/postgresql/data
 
   api:
     build: .
@@ -21,4 +21,4 @@ services:
       - db
 
 volumes:
-  loonie_pgdata:
+  qolar_pgdata:

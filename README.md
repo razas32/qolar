@@ -1,4 +1,4 @@
-# Loonie
+# Qolar
 
 Canada-first personal finance. Bank transactions come in through Plaid, get
 categorized automatically, and the app only asks you about the ones it

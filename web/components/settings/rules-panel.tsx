@@ -54,7 +54,7 @@ export function RulesPanel({ overrides, merchantTypes, categories }: Props) {
     <div className="space-y-6">
       <div className="space-y-2">
         <p className="text-sm text-muted-foreground">
-          A merchant rule beats everything else. &ldquo;Always ask&rdquo; means Loonie will nudge you every time
+          A merchant rule beats everything else. &ldquo;Always ask&rdquo; means Qolar will nudge you every time
           instead of guessing — right for Amazon-style merchants that could be anything.
         </p>
         <form
@@ -139,7 +139,7 @@ export function RulesPanel({ overrides, merchantTypes, categories }: Props) {
 
       <details className="text-sm">
         <summary className="cursor-pointer text-muted-foreground">
-          What Loonie knows about merchants ({merchantTypes.length}) — shared knowledge, not your rules
+          What Qolar knows about merchants ({merchantTypes.length}) — shared knowledge, not your rules
         </summary>
         <Card className="mt-2">
           <Table>

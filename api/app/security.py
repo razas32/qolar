@@ -28,8 +28,8 @@ from plaid.model.webhook_verification_key_get_request import WebhookVerification
 MAX_WEBHOOK_BODY_BYTES = 64_000
 
 
-async def require_setup_secret(x_loonie_setup_secret: str = Header(default="")) -> None:
-    if not hmac.compare_digest(x_loonie_setup_secret, settings.setup_secret):
+async def require_setup_secret(x_qolar_setup_secret: str = Header(default="")) -> None:
+    if not hmac.compare_digest(x_qolar_setup_secret, settings.setup_secret):
         raise HTTPException(status_code=403, detail="invalid setup secret")
 
 
