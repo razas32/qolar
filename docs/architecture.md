@@ -6,10 +6,25 @@
   Telegram (nudges), and optionally Anthropic (categorization).
 - **web/** — Next.js dashboard on Vercel. Stateless; calls `api/` server-side
   with a setup secret that never reaches the browser. Gated by Basic Auth.
-- Local dev: `api/` runs on the laptop behind a Cloudflare quick tunnel so
-  Plaid, Telegram, and Vercel can reach it. The tunnel URL changes on every
-  restart — update `WEBHOOK_BASE_URL`, re-run Telegram `setWebhook`, and
-  update Vercel's `API_BASE_URL`. A VPS with a real domain removes all of this.
+- **Hosting (since 2026-09-05):** everything is on Vercel, no laptop involved.
+  - `api/` → Vercel project `qolar-api`, zero-config FastAPI (entrypoint
+    `app/main.py`), Python 3.13, at **https://api.qolar.app**. Daily
+    `/cron/sync` (Vercel Cron, `CRON_SECRET`) is the fallback for Plaid's
+    webhook. Deploy with `api/deploy.sh`.
+  - Postgres → **Neon** via the Vercel Marketplace (free tier, `us-east-1` —
+    not Canada; upgrade to a Canadian-region DB before real users' data
+    matters). `DATABASE_URL` is injected into the project. Migrations run from
+    a dev machine: `DATABASE_URL=<neon unpooled url> alembic upgrade head`.
+  - `web/` → Vercel project `loonie-dashboard` (name is historical) at
+    **https://qolar.app**. Deploy with `web/deploy.sh`.
+  - DNS is on Cloudflare: `A qolar.app 76.76.21.21` and `A api.qolar.app
+    76.76.21.21`, both **DNS-only** (proxy off, or Vercel can't issue certs).
+  - When the API URL changes: update `WEBHOOK_BASE_URL` (api project) and
+    `API_BASE_URL` (web project), redeploy both, re-run Telegram `setWebhook`,
+    and `python -m scripts.update_webhooks` for existing Plaid items.
+- Local dev still runs `api/` on `localhost:8000` against a local Postgres;
+  `web/.env.local` points at it. Webhooks don't reach local dev — use
+  `scripts/sync_now.py` and the manual nudge paths instead of a tunnel.
 
 ## Data flow
 

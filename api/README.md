@@ -47,19 +47,27 @@ the transaction.
    fails building from source; 2.9.12 works. If `pip install` fails building
    psycopg2, bump the pin in `requirements.txt`.
 
-3. Tunnel it for Plaid/Telegram webhooks during local dev:
+3. Webhooks (Plaid, Telegram) point at production — **https://api.qolar.app**
+   — not at local dev. Local dev pulls data with `python3 -m scripts.sync_now`
+   instead. To (re)register after the API URL changes:
    ```
-   ngrok http 8000
+   curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://api.qolar.app/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>"
+   WEBHOOK_BASE_URL=https://api.qolar.app DATABASE_URL=<neon url> python3 -m scripts.update_webhooks
    ```
-   ngrok requires a free account — sign up at ngrok.com, get your authtoken
-   from the dashboard, then `ngrok config add-authtoken <token>` once.
 
-   Then set the ngrok URL + `/plaid/webhook` as your webhook in the Plaid
-   dashboard, and register the Telegram webhook with the secret token so
-   Telegram signs its calls (must match `TELEGRAM_WEBHOOK_SECRET` in `.env`):
-   ```
-   curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<ngrok-url>/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>"
-   ```
+## Production (Vercel + Neon)
+
+- Vercel project `qolar-api`; FastAPI is auto-detected from `app/main.py`,
+  Python 3.13 from `.python-version`. Config in `vercel.json` (cron, bundle
+  excludes). Deploy: `./deploy.sh` (stages a git-free copy — see the comment
+  in the script for why).
+- Database: Neon Postgres from the Vercel Marketplace; `DATABASE_URL` is set
+  on the project automatically. `vercel env pull .env.local` gives you the
+  connection strings locally. Run migrations against it explicitly:
+  `DATABASE_URL=<DATABASE_URL_UNPOOLED from .env.local> .venv/bin/alembic upgrade head`
+- All other secrets are Vercel env vars (`vercel env ls production`).
+- `/cron/sync` runs daily (Hobby plan minimum) as the fallback for Plaid's
+  transactions webhook.
 
 4. Link an account: call `POST /plaid/link-token` and `POST /plaid/exchange-token`
    with header `X-Qolar-Setup-Secret: <SETUP_SECRET>`. Use the returned

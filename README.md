@@ -12,6 +12,9 @@ docs/   Design notes.
 
 Each folder has its own README with setup steps. Start with `api/`.
 
+Live: **https://qolar.app** (dashboard) · **https://api.qolar.app** (API).
+Both on Vercel; Postgres on Neon. See `docs/architecture.md` → Hosting.
+
 ## How categorization works (short version)
 
 Cheapest signal first, stop at the first hit:

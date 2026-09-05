@@ -1,7 +1,7 @@
 # Qolar — web
 
-Next.js 16 dashboard. Read-only view of transactions and categories, served
-from Vercel at https://qolar-dashboard.vercel.app behind HTTP Basic Auth.
+Next.js 16 dashboard, served from Vercel at **https://qolar.app** behind HTTP
+Basic Auth. Talks to the API at https://api.qolar.app (server-side only).
 
 ## How it talks to the API
 
