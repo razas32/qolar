@@ -5,27 +5,37 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.categorize import find_category, merchant_key
+from app.auth import current_user
+from app.categorize import find_category, merchant_key, seed_defaults
 from app.db import get_db
-from app.models import Category, CategoryMapping, MerchantOverride, MerchantType, ReplySynonym, Transaction
-from app.recategorize import recategorize_all
-from app.security import require_setup_secret
+from app.models import Category, CategoryMapping, Item, MerchantOverride, MerchantType, ReplySynonym, Transaction, User
+from app.recategorize import recategorize_user
 from app.taxonomy import DEFAULT_MAPPING, primary_of
 
-router = APIRouter(tags=["categories"], dependencies=[Depends(require_setup_secret)])
+router = APIRouter(tags=["categories"])
 
 
 def _cat(c: Category) -> dict:
     return {"id": str(c.id), "name": c.name}
 
 
+def _own_category(db: Session, user: User, category_id: uuid.UUID) -> Category:
+    c = db.query(Category).filter(Category.user_id == user.id, Category.id == category_id).first()
+    if c is None:
+        raise HTTPException(status_code=404, detail="category not found")
+    return c
+
+
 # --- categories -------------------------------------------------------------
 
 @router.get("/categories")
-async def list_categories(db: Session = Depends(get_db)):
-    cats = db.query(Category).order_by(Category.name).all()
+async def list_categories(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    seed_defaults(db, user)
+    cats = db.query(Category).filter(Category.user_id == user.id).order_by(Category.name).all()
     counts = dict(
         db.query(Transaction.category_id, func.count())
+        .join(Item, Transaction.item_id == Item.id)
+        .filter(Item.user_id == user.id)
         .group_by(Transaction.category_id)
         .all()
     )
@@ -37,31 +47,30 @@ class CategoryBody(BaseModel):
 
 
 @router.post("/categories")
-async def create_category(body: CategoryBody, db: Session = Depends(get_db)):
+async def create_category(body: CategoryBody, user: User = Depends(current_user), db: Session = Depends(get_db)):
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="name required")
-    if db.query(Category).filter(Category.name.ilike(name)).first():
+    if find_category(db, user, name):
         raise HTTPException(status_code=409, detail="category exists")
-    c = Category(name=name)
+    c = Category(user_id=user.id, name=name)
     db.add(c)
     db.commit()
     return _cat(c)
 
 
 @router.put("/categories/{category_id}")
-async def rename_category(category_id: uuid.UUID, body: CategoryBody, db: Session = Depends(get_db)):
-    c = db.query(Category).filter(Category.id == category_id).first()
-    if c is None:
-        raise HTTPException(status_code=404, detail="category not found")
+async def rename_category(
+    category_id: uuid.UUID, body: CategoryBody, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
+    c = _own_category(db, user, category_id)
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="name required")
-    clash = db.query(Category).filter(Category.name.ilike(name), Category.id != category_id).first()
-    if clash:
+    clash = find_category(db, user, name)
+    if clash and clash.id != c.id:
         raise HTTPException(status_code=409, detail="category exists")
     c.name = name
-    # keep the legacy free-text column in sync
     for t in db.query(Transaction).filter(Transaction.category_id == c.id).all():
         t.category = name
     db.commit()
@@ -73,16 +82,17 @@ class DeleteCategoryBody(BaseModel):
 
 
 @router.delete("/categories/{category_id}")
-async def delete_category(category_id: uuid.UUID, body: DeleteCategoryBody | None = None, db: Session = Depends(get_db)):
-    """Delete a category. Its transactions, mappings, overrides and synonyms are
-    moved to `move_to` if given, otherwise set back to uncategorized / removed."""
-    c = db.query(Category).filter(Category.id == category_id).first()
-    if c is None:
-        raise HTTPException(status_code=404, detail="category not found")
+async def delete_category(
+    category_id: uuid.UUID,
+    body: DeleteCategoryBody | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    c = _own_category(db, user, category_id)
     target = None
     if body and body.move_to:
-        target = db.query(Category).filter(Category.id == body.move_to).first()
-        if target is None or target.id == c.id:
+        target = _own_category(db, user, body.move_to)
+        if target.id == c.id:
             raise HTTPException(status_code=400, detail="invalid move_to")
 
     for t in db.query(Transaction).filter(Transaction.category_id == c.id).all():
@@ -114,12 +124,21 @@ async def delete_category(category_id: uuid.UUID, body: DeleteCategoryBody | Non
 # --- rules ------------------------------------------------------------------
 
 @router.get("/rules")
-async def list_rules(db: Session = Depends(get_db)):
-    """Everything that decides a category, for the dashboard to show and edit."""
-    overrides = db.query(MerchantOverride).order_by(MerchantOverride.merchant_key).all()
-    mappings = {m.plaid_code: m for m in db.query(CategoryMapping).all()}
-    types = db.query(MerchantType).order_by(MerchantType.merchant_key).all()
-    # Present every known Plaid code, mapped or not, so the settings page is complete.
+async def list_rules(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    seed_defaults(db, user)
+    overrides = (
+        db.query(MerchantOverride)
+        .filter(MerchantOverride.user_id == user.id)
+        .order_by(MerchantOverride.merchant_key)
+        .all()
+    )
+    mappings = {m.plaid_code: m for m in db.query(CategoryMapping).filter(CategoryMapping.user_id == user.id).all()}
+    # Shared knowledge, shown read-only: only merchants this user has seen.
+    seen_keys = {
+        merchant_key(t.merchant_name, t.description)
+        for t in db.query(Transaction).join(Item, Transaction.item_id == Item.id).filter(Item.user_id == user.id).all()
+    }
+    types = [t for t in db.query(MerchantType).order_by(MerchantType.merchant_key).all() if t.merchant_key in seen_keys]
     all_codes = sorted(set(DEFAULT_MAPPING) | set(mappings))
     return {
         "overrides": [
@@ -149,12 +168,12 @@ async def list_rules(db: Session = Depends(get_db)):
 
 
 class OverrideBody(BaseModel):
-    category: str | None = None  # category name
+    category: str | None = None
     always_ask: bool = False
 
 
 @router.put("/rules/overrides/{merchant}")
-async def set_override(merchant: str, body: OverrideBody, db: Session = Depends(get_db)):
+async def set_override(merchant: str, body: OverrideBody, user: User = Depends(current_user), db: Session = Depends(get_db)):
     key = merchant_key(merchant, None)
     if not key:
         raise HTTPException(status_code=400, detail="merchant required")
@@ -162,12 +181,16 @@ async def set_override(merchant: str, body: OverrideBody, db: Session = Depends(
     if not body.always_ask:
         if not body.category:
             raise HTTPException(status_code=400, detail="category or always_ask required")
-        category = find_category(db, body.category)
+        category = find_category(db, user, body.category)
         if category is None:
             raise HTTPException(status_code=400, detail="unknown category")
-    o = db.query(MerchantOverride).filter(MerchantOverride.merchant_key == key).first()
+    o = (
+        db.query(MerchantOverride)
+        .filter(MerchantOverride.user_id == user.id, MerchantOverride.merchant_key == key)
+        .first()
+    )
     if o is None:
-        o = MerchantOverride(merchant_key=key, source="user")
+        o = MerchantOverride(user_id=user.id, merchant_key=key, source="user")
         db.add(o)
     o.category_id = category.id if category else None
     o.always_ask = body.always_ask
@@ -177,9 +200,13 @@ async def set_override(merchant: str, body: OverrideBody, db: Session = Depends(
 
 
 @router.delete("/rules/overrides/{merchant}")
-async def delete_override(merchant: str, db: Session = Depends(get_db)):
+async def delete_override(merchant: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
     key = merchant_key(merchant, None)
-    o = db.query(MerchantOverride).filter(MerchantOverride.merchant_key == key).first()
+    o = (
+        db.query(MerchantOverride)
+        .filter(MerchantOverride.user_id == user.id, MerchantOverride.merchant_key == key)
+        .first()
+    )
     if o is None:
         raise HTTPException(status_code=404, detail="override not found")
     db.delete(o)
@@ -188,19 +215,23 @@ async def delete_override(merchant: str, db: Session = Depends(get_db)):
 
 
 class MappingBody(BaseModel):
-    category: str  # category name
+    category: str
 
 
 @router.put("/rules/mappings/{plaid_code}")
-async def set_mapping(plaid_code: str, body: MappingBody, db: Session = Depends(get_db)):
+async def set_mapping(plaid_code: str, body: MappingBody, user: User = Depends(current_user), db: Session = Depends(get_db)):
     if primary_of(plaid_code) is None:
         raise HTTPException(status_code=400, detail="unknown plaid code")
-    category = find_category(db, body.category)
+    category = find_category(db, user, body.category)
     if category is None:
         raise HTTPException(status_code=400, detail="unknown category")
-    m = db.query(CategoryMapping).filter(CategoryMapping.plaid_code == plaid_code).first()
+    m = (
+        db.query(CategoryMapping)
+        .filter(CategoryMapping.user_id == user.id, CategoryMapping.plaid_code == plaid_code)
+        .first()
+    )
     if m is None:
-        m = CategoryMapping(plaid_code=plaid_code)
+        m = CategoryMapping(user_id=user.id, plaid_code=plaid_code)
         db.add(m)
     m.category_id = category.id
     db.commit()
@@ -211,10 +242,10 @@ async def set_mapping(plaid_code: str, body: MappingBody, db: Session = Depends(
 
 class RecategorizeBody(BaseModel):
     send_nudges: bool = False
-    include_kept: bool = False  # also re-evaluate user/nudge-decided rows
+    include_kept: bool = False
 
 
 @router.post("/recategorize")
-async def recategorize(body: RecategorizeBody | None = None, db: Session = Depends(get_db)):
+async def recategorize(body: RecategorizeBody | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     body = body or RecategorizeBody()
-    return await recategorize_all(db, send_nudges=body.send_nudges, include_kept=body.include_kept)
+    return await recategorize_user(db, user, send_nudges=body.send_nudges, include_kept=body.include_kept)

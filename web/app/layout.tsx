@@ -1,3 +1,4 @@
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
@@ -17,8 +18,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={geist.variable}>
       <body className="min-h-screen bg-background font-sans antialiased">
-        <Nav />
-        <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+        <ClerkProvider>
+          <Nav />
+          <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+        </ClerkProvider>
       </body>
     </html>
   );

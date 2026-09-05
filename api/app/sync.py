@@ -23,6 +23,9 @@ def _fill_plaid_fields(txn: Transaction, added) -> None:
 
 
 async def sync_item_transactions(item: Item, db: Session, *, send_nudges: bool = True) -> int:
+    user = item.user
+    categorize.seed_defaults(db, user)
+
     # Plaid's SDK rejects cursor=None outright -- must be omitted on first sync.
     kwargs = {"access_token": item.access_token}
     if item.cursor:
@@ -38,8 +41,6 @@ async def sync_item_transactions(item: Item, db: Session, *, send_nudges: bool =
             .first()
         )
         if txn:
-            # Already known -- just make sure the Plaid metadata is present
-            # (rows from before these columns existed have none).
             if txn.plaid_category_detailed is None:
                 _fill_plaid_fields(txn, added)
                 db.commit()
@@ -56,7 +57,7 @@ async def sync_item_transactions(item: Item, db: Session, *, send_nudges: bool =
         db.add(txn)
         db.flush()
 
-        decision = categorize.decide(db, txn)
+        decision = categorize.decide(db, user, txn)
         categorize.apply(db, txn, decision)
         db.commit()
         db.refresh(txn)
@@ -67,13 +68,13 @@ async def sync_item_transactions(item: Item, db: Session, *, send_nudges: bool =
     # A new row may be the other side of a transfer we already hold (or vice
     # versa). Match before asking, so an autopay never becomes a question.
     if added_count:
-        match_transfers(db)
+        match_transfers(db, user)
 
     if send_nudges:
         for txn in to_ask:
             db.refresh(txn)
             if txn.is_ambiguous:
-                await maybe_send_nudge(txn, db)
+                await maybe_send_nudge(db, user, txn)
 
     item.cursor = response.next_cursor
     db.commit()

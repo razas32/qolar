@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.routers import categories, cron, plaid, telegram
+from app.routers import categories, cron, me, plaid, telegram
 
 app = FastAPI(title="Qolar")
 
@@ -37,6 +37,7 @@ app.include_router(plaid.router)
 app.include_router(telegram.router)
 app.include_router(categories.router)
 app.include_router(cron.router)
+app.include_router(me.router)
 
 
 @app.get("/health")

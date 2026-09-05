@@ -1,11 +1,13 @@
 import { Filters } from "@/components/filters";
 import { TransactionsTable } from "@/components/transactions-table";
 import { fetchAccounts, fetchCategories, fetchTransactions } from "@/lib/api";
+import { requireUser } from "@/lib/require-user";
 import { isCredit, money, monthKey } from "@/lib/format";
 
 type Search = { month?: string; account?: string; category?: string };
 
 export default async function TransactionsPage({ searchParams }: { searchParams: Promise<Search> }) {
+  await requireUser();
   const sp = await searchParams;
   const [all, accounts, categories] = await Promise.all([fetchTransactions(), fetchAccounts(), fetchCategories()]);
 

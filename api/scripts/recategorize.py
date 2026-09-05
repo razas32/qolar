@@ -1,7 +1,6 @@
-"""Seed default categories/mappings, then run the decision ladder over every
-transaction that isn't already user- or nudge-categorized. Idempotent.
+"""Re-run the decision ladder for every user (or one). Idempotent.
 
-Usage: python3 -m scripts.recategorize [--nudge]
+Usage: python3 -m scripts.recategorize [--nudge] [--user <clerk_user_id>]
   --nudge  also send Telegram nudges for anything the ladder can't decide
 """
 
@@ -10,17 +9,24 @@ import json
 import sys
 
 from app.db import SessionLocal
-from app.recategorize import recategorize_all
+from app.models import User
+from app.recategorize import recategorize_user
 
 
-async def main(send_nudges: bool) -> None:
+async def main(send_nudges: bool, only: str | None) -> None:
     db = SessionLocal()
     try:
-        result = await recategorize_all(db, send_nudges=send_nudges)
-        print(json.dumps(result, indent=2))
+        q = db.query(User)
+        if only:
+            q = q.filter(User.clerk_user_id == only)
+        for user in q.all():
+            result = await recategorize_user(db, user, send_nudges=send_nudges)
+            print(user.clerk_user_id, json.dumps(result, indent=2))
     finally:
         db.close()
 
 
 if __name__ == "__main__":
-    asyncio.run(main("--nudge" in sys.argv))
+    args = sys.argv[1:]
+    only = args[args.index("--user") + 1] if "--user" in args else None
+    asyncio.run(main("--nudge" in args, only))

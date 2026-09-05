@@ -4,8 +4,10 @@ import { RulesPanel } from "@/components/settings/rules-panel";
 import { MappingsPanel } from "@/components/settings/mappings-panel";
 import { RecategorizeButton } from "@/components/settings/recategorize-button";
 import { fetchCategories, fetchRules } from "@/lib/api";
+import { requireUser } from "@/lib/require-user";
 
 export default async function SettingsPage() {
+  await requireUser();
   const [categories, rules] = await Promise.all([fetchCategories(), fetchRules()]);
 
   return (

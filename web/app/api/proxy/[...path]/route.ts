@@ -1,9 +1,11 @@
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
+import { apiBase } from "@/lib/api";
 
 /**
- * Browser -> Qolar API, with the setup secret added server-side. Only the
- * paths the dashboard actually uses are forwarded; everything else is 404.
- * proxy.ts (Basic Auth) already gates this route like every other.
+ * Browser -> Qolar API, carrying the signed-in user's Clerk session token.
+ * Only the paths the dashboard actually uses are forwarded; everything else
+ * is 404. The API scopes every one of these to the token's user.
  */
 
 const ALLOW: { method: string; pattern: RegExp }[] = [
@@ -18,6 +20,8 @@ const ALLOW: { method: string; pattern: RegExp }[] = [
   { method: "DELETE", pattern: /^rules\/overrides\/[^/]+$/ },
   { method: "PUT", pattern: /^rules\/mappings\/[A-Z_]+$/ },
   { method: "POST", pattern: /^recategorize$/ },
+  { method: "POST", pattern: /^me\/telegram\/link-code$/ },
+  { method: "DELETE", pattern: /^me\/telegram$/ },
 ];
 
 async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
@@ -26,15 +30,15 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   const allowed = ALLOW.some((r) => r.method === req.method && r.pattern.test(joined));
   if (!allowed) return NextResponse.json({ detail: "not allowed" }, { status: 404 });
 
-  const base = process.env.API_BASE_URL?.replace(/\/$/, "");
-  const secret = process.env.SETUP_SECRET;
-  if (!base || !secret) return NextResponse.json({ detail: "API not configured" }, { status: 503 });
+  const { getToken, isAuthenticated } = await auth();
+  const token = isAuthenticated ? await getToken() : null;
+  if (!token) return NextResponse.json({ detail: "sign in required" }, { status: 401 });
 
   const body = req.method === "GET" ? undefined : await req.text();
-  const upstream = await fetch(`${base}/${path.map(encodeURIComponent).join("/")}`, {
+  const upstream = await fetch(`${apiBase()}/${path.map(encodeURIComponent).join("/")}`, {
     method: req.method,
     headers: {
-      "X-Qolar-Setup-Secret": secret,
+      Authorization: `Bearer ${token}`,
       ...(body ? { "Content-Type": "application/json" } : {}),
     },
     body: body || undefined,

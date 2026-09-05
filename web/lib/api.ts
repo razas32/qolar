@@ -1,4 +1,5 @@
 import "server-only";
+import { auth } from "@clerk/nextjs/server";
 
 export type Transaction = {
   id: string;
@@ -11,7 +12,7 @@ export type Transaction = {
   pending: boolean;
   category: string | null;
   category_id: string | null;
-  category_source: "user" | "learned" | "plaid" | "llm" | "nudge" | null;
+  category_source: "user" | "learned" | "plaid" | "llm" | "nudge" | "matched" | null;
   plaid_category: string | null;
   is_ambiguous: boolean;
   nudge_pending: boolean;
@@ -43,23 +44,33 @@ export type Rules = {
   merchant_types: { merchant: string; plaid_code: string; confidence: string; source: string }[];
 };
 
-/**
- * Server-only: reads the Qolar API through the setup secret. Both env vars
- * stay on the server -- nothing here is ever shipped to the browser.
- */
-function config() {
+export type Me = {
+  id: string;
+  telegram_linked: boolean;
+  telegram_link_code: string | null;
+  bot_username: string | null;
+};
+
+export function apiBase(): string {
   const base = process.env.API_BASE_URL;
-  const secret = process.env.SETUP_SECRET;
-  if (!base || !secret) throw new Error("API_BASE_URL and SETUP_SECRET must be set");
-  return { base: base.replace(/\/$/, ""), secret };
+  if (!base) throw new Error("API_BASE_URL must be set");
+  return base.replace(/\/$/, "");
 }
 
+/**
+ * Server-only. Every call carries the signed-in user's Clerk session token;
+ * the API verifies it against Clerk's JWKS and scopes everything to that user.
+ * Callers must already have ensured the user is signed in (see requireUser()).
+ */
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const { base, secret } = config();
-  const res = await fetch(`${base}${path}`, {
+  const { getToken } = await auth();
+  const token = await getToken();
+  if (!token) throw new Error("not signed in");
+
+  const res = await fetch(`${apiBase()}${path}`, {
     ...init,
     headers: {
-      "X-Qolar-Setup-Secret": secret,
+      Authorization: `Bearer ${token}`,
       ...(init?.body ? { "Content-Type": "application/json" } : {}),
       ...(init?.headers ?? {}),
     },
@@ -76,3 +87,4 @@ export const fetchTransactions = () => apiFetch<Transaction[]>("/plaid/transacti
 export const fetchAccounts = () => apiFetch<Account[]>("/plaid/accounts");
 export const fetchCategories = () => apiFetch<Category[]>("/categories");
 export const fetchRules = () => apiFetch<Rules>("/rules");
+export const fetchMe = () => apiFetch<Me>("/me");

@@ -1,4 +1,4 @@
-"""Match transfers between the user's own accounts.
+"""Match transfers between one user's own accounts.
 
 A credit-card autopay, an e-transfer to savings, etc. shows up twice: money
 out of one account and the same amount into another on the same day. The
@@ -12,19 +12,24 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from app.categorize import find_category
-from app.models import Transaction
+from app.models import Item, Transaction, User
 
 WINDOW_DAYS = 2
 SOURCE = "matched"
 
 
-def match_transfers(db: Session) -> int:
-    transfers = find_category(db, "Transfers")
+def match_transfers(db: Session, user: User) -> int:
+    transfers = find_category(db, user, "Transfers")
     if transfers is None:
         return 0
 
-    rows = db.query(Transaction).filter(Transaction.account_id.isnot(None)).order_by(Transaction.date).all()
-    # Only re-decide rows a human hasn't already decided.
+    rows = (
+        db.query(Transaction)
+        .join(Item, Transaction.item_id == Item.id)
+        .filter(Item.user_id == user.id, Transaction.account_id.isnot(None))
+        .order_by(Transaction.date)
+        .all()
+    )
     movable = {t.id for t in rows if t.category_source not in ("user", "nudge")}
 
     by_amount: dict[float, list[Transaction]] = {}

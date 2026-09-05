@@ -4,6 +4,7 @@ import { Filters } from "@/components/filters";
 import { SpendChart, type CategoryTotal } from "@/components/spend-chart";
 import { TransactionsTable } from "@/components/transactions-table";
 import { fetchAccounts, fetchCategories, fetchTransactions } from "@/lib/api";
+import { requireUser } from "@/lib/require-user";
 import { currentMonthKey, isCredit, money, monthKey } from "@/lib/format";
 
 type Search = { month?: string; account?: string };
@@ -23,8 +24,24 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 }
 
 export default async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
+  await requireUser();
   const sp = await searchParams;
   const [all, accounts, categories] = await Promise.all([fetchTransactions(), fetchAccounts(), fetchCategories()]);
+
+  if (accounts.length === 0) {
+    return (
+      <div className="mx-auto max-w-lg space-y-4 py-16 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight">Welcome to Qolar</h1>
+        <p className="text-muted-foreground">
+          Connect a bank to get started. Your login happens inside Plaid&apos;s secure window — it never touches
+          Qolar.
+        </p>
+        <Link href="/connect" className="inline-block rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground">
+          Connect a bank
+        </Link>
+      </div>
+    );
+  }
 
   const months = [...new Set(all.map((t) => monthKey(t.date)))].sort();
   const month = sp.month ?? (months.includes(currentMonthKey()) ? currentMonthKey() : months.at(-1) ?? "all");
@@ -34,8 +51,6 @@ export default async function Overview({ searchParams }: { searchParams: Promise
     (t) => (month === "all" || monthKey(t.date) === month) && (account === "all" || t.account_id === account),
   );
 
-  // Spend = money out, excluding transfers between your own accounts (credit
-  // card payments etc.) so the total reflects actual consumption.
   const isTransfer = (c: string | null) => c === "Transfers";
   const spent = rows.filter((t) => !isCredit(t.amount) && !isTransfer(t.category)).reduce((s, t) => s + t.amount, 0);
   const cameIn = rows.filter((t) => isCredit(t.amount) && !isTransfer(t.category)).reduce((s, t) => s - t.amount, 0);

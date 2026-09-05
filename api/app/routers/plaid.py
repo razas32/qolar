@@ -12,14 +12,15 @@ from plaid.model.products import Products
 from plaid.model.country_code import CountryCode
 from plaid.model.item_public_token_exchange_request import ItemPublicTokenExchangeRequest
 
+from app.auth import current_user
 from app.config import settings
 from app.db import get_db
 from app.plaid_client import client
-from app.models import Account, Item, Transaction
+from app.models import Account, Item, Transaction, User
 from app.categorize import find_category
 from app.nudge import learn_override
 from app.sync import sync_item_transactions
-from app.security import require_setup_secret, verify_plaid_webhook
+from app.security import verify_plaid_webhook
 
 router = APIRouter(prefix="/plaid", tags=["plaid"])
 
@@ -51,10 +52,22 @@ def _account_label(acc: Account | None) -> str | None:
     return f"{acc.name} ••{acc.mask}" if acc.mask else acc.name
 
 
-@router.post("/link-token", dependencies=[Depends(require_setup_secret)])
-async def create_link_token():
+def _user_items(db: Session, user: User) -> list[Item]:
+    return db.query(Item).filter(Item.user_id == user.id).all()
+
+
+def _user_transactions(db: Session, user: User):
+    return (
+        db.query(Transaction)
+        .join(Item, Transaction.item_id == Item.id)
+        .filter(Item.user_id == user.id)
+    )
+
+
+@router.post("/link-token")
+async def create_link_token(user: User = Depends(current_user)):
     request = LinkTokenCreateRequest(
-        user=LinkTokenCreateRequestUser(client_user_id="qolar-single-user"),
+        user=LinkTokenCreateRequestUser(client_user_id=str(user.id)),
         client_name="Qolar",
         products=[Products("transactions")],
         country_codes=[CountryCode("CA")],
@@ -69,15 +82,10 @@ class ExchangeBody(BaseModel):
     public_token: str
 
 
-@router.post("/exchange-token", dependencies=[Depends(require_setup_secret)])
-async def exchange_token(
-    body: ExchangeBody | None = None, public_token: str | None = None, db: Session = Depends(get_db)
-):
-    token = (body.public_token if body else None) or public_token
-    if not token:
-        raise HTTPException(status_code=400, detail="public_token required")
-    response = client.item_public_token_exchange(ItemPublicTokenExchangeRequest(public_token=token))
-    item = Item(plaid_item_id=response.item_id, access_token=response.access_token)
+@router.post("/exchange-token")
+async def exchange_token(body: ExchangeBody, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    response = client.item_public_token_exchange(ItemPublicTokenExchangeRequest(public_token=body.public_token))
+    item = Item(user_id=user.id, plaid_item_id=response.item_id, access_token=response.access_token)
     db.add(item)
     db.commit()
     accounts = _refresh_accounts(db, item)
@@ -90,11 +98,10 @@ async def exchange_token(
     }
 
 
-@router.get("/accounts", dependencies=[Depends(require_setup_secret)])
-async def list_accounts(db: Session = Depends(get_db)):
-    items = db.query(Item).all()
+@router.get("/accounts")
+async def list_accounts(user: User = Depends(current_user), db: Session = Depends(get_db)):
     out = []
-    for item in items:
+    for item in _user_items(db, user):
         accounts = db.query(Account).filter(Account.item_id == item.id).all()
         if not accounts:
             accounts = _refresh_accounts(db, item)
@@ -113,11 +120,11 @@ async def list_accounts(db: Session = Depends(get_db)):
     return out
 
 
-@router.post("/sync", dependencies=[Depends(require_setup_secret)])
-async def sync_all(db: Session = Depends(get_db)):
-    """Pull new transactions for every linked item. Same path as the webhook."""
+@router.post("/sync")
+async def sync_mine(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Pull new transactions for every item this user has linked."""
     results = []
-    for item in db.query(Item).all():
+    for item in _user_items(db, user):
         added = await sync_item_transactions(item, db)
         results.append({"item_id": item.plaid_item_id, "added": added})
     return results
@@ -142,18 +149,17 @@ def _serialize(t: Transaction, accounts: dict[str, Account]) -> dict:
     }
 
 
-def _accounts_by_id(db: Session) -> dict[str, Account]:
-    return {a.plaid_account_id: a for a in db.query(Account).all()}
+def _accounts_by_id(db: Session, user: User) -> dict[str, Account]:
+    item_ids = [i.id for i in _user_items(db, user)]
+    if not item_ids:
+        return {}
+    return {a.plaid_account_id: a for a in db.query(Account).filter(Account.item_id.in_(item_ids)).all()}
 
 
-@router.get("/transactions", dependencies=[Depends(require_setup_secret)])
-async def list_transactions(db: Session = Depends(get_db)):
-    rows = (
-        db.query(Transaction)
-        .order_by(Transaction.date.desc(), Transaction.created_at.desc())
-        .all()
-    )
-    accounts = _accounts_by_id(db)
+@router.get("/transactions")
+async def list_transactions(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    rows = _user_transactions(db, user).order_by(Transaction.date.desc(), Transaction.created_at.desc()).all()
+    accounts = _accounts_by_id(db, user)
     return [_serialize(t, accounts) for t in rows]
 
 
@@ -161,14 +167,16 @@ class SetCategory(BaseModel):
     category: str
 
 
-@router.put("/transactions/{transaction_id}/category", dependencies=[Depends(require_setup_secret)])
-async def set_transaction_category(transaction_id: uuid.UUID, body: SetCategory, db: Session = Depends(get_db)):
+@router.put("/transactions/{transaction_id}/category")
+async def set_transaction_category(
+    transaction_id: uuid.UUID, body: SetCategory, user: User = Depends(current_user), db: Session = Depends(get_db)
+):
     """The user says what this was. Sets it, and writes a `user` override for
     the merchant so it outranks everything else from now on."""
-    txn = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    txn = _user_transactions(db, user).filter(Transaction.id == transaction_id).first()
     if txn is None:
         raise HTTPException(status_code=404, detail="transaction not found")
-    category = find_category(db, body.category)
+    category = find_category(db, user, body.category)
     if category is None:
         raise HTTPException(status_code=400, detail="unknown category")
 
@@ -176,12 +184,12 @@ async def set_transaction_category(transaction_id: uuid.UUID, body: SetCategory,
     txn.category_source = "user"
     txn.category = category.name
     txn.is_ambiguous = False
-    learn_override(db, txn, category, source="user")
+    learn_override(db, user, txn, category, source="user")
     if txn.nudge and txn.nudge.resolved_at is None:
         txn.nudge.resolved_at = datetime.utcnow()
     db.commit()
     db.refresh(txn)
-    return _serialize(txn, _accounts_by_id(db))
+    return _serialize(txn, _accounts_by_id(db, user))
 
 
 @router.post("/webhook")
