@@ -1,4 +1,5 @@
 import uuid
+import zlib
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -15,8 +16,16 @@ from app.taxonomy import DEFAULT_MAPPING, primary_of
 router = APIRouter(tags=["categories"])
 
 
+PALETTE_SIZE = 12
+
+
+def color_index(name: str) -> int:
+    """Stable per-name colour slot; the web palette has 12 entries."""
+    return zlib.crc32(name.strip().lower().encode("utf-8")) % PALETTE_SIZE
+
+
 def _cat(c: Category) -> dict:
-    return {"id": str(c.id), "name": c.name}
+    return {"id": str(c.id), "name": c.name, "color_index": color_index(c.name)}
 
 
 def _own_category(db: Session, user: User, category_id: uuid.UUID) -> Category:
