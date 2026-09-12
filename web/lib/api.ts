@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { auth } from "@clerk/nextjs/server";
 
 export type Transaction = {
@@ -30,7 +31,9 @@ export type Account = {
   item_id: string;
 };
 
-export type Category = { id: string; name: string; transaction_count: number };
+export type Category = { id: string; name: string; transaction_count: number; color_index: number };
+
+export type SetCategoryResult = Transaction & { merchant_siblings: number; applied: number };
 
 export type Rules = {
   overrides: {
@@ -83,8 +86,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return res.json();
 }
 
-export const fetchTransactions = () => apiFetch<Transaction[]>("/plaid/transactions");
+export const fetchTransactions = cache(() => apiFetch<Transaction[]>("/plaid/transactions"));
 export const fetchAccounts = () => apiFetch<Account[]>("/plaid/accounts");
-export const fetchCategories = () => apiFetch<Category[]>("/categories");
+export const fetchCategories = cache(() => apiFetch<Category[]>("/categories"));
 export const fetchRules = () => apiFetch<Rules>("/rules");
 export const fetchMe = () => apiFetch<Me>("/me");
