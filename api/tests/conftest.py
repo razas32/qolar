@@ -1,6 +1,5 @@
 """Tests run against a throwaway Postgres database `loonie_test` on the same
 server as DATABASE_URL. Clerk auth is bypassed by overriding `current_user`."""
-import os
 import uuid
 from datetime import date
 from decimal import Decimal

@@ -169,9 +169,9 @@ class SetCategory(BaseModel):
     apply_to_merchant: bool = False
 
 
-def _set_user_category(txn: Transaction, category: Category) -> None:
+def _set_user_category(txn: Transaction, category: Category, source: str = "user") -> None:
     txn.category_id = category.id
-    txn.category_source = "user"
+    txn.category_source = source
     txn.category = category.name
     txn.is_ambiguous = False
     if txn.nudge and txn.nudge.resolved_at is None:
@@ -214,12 +214,7 @@ async def set_transaction_category(
     if body.apply_to_merchant:
         learn_override(db, user, txn, category, source="user")
         for s in siblings:
-            s.category_id = category.id
-            s.category = category.name
-            s.category_source = "learned"
-            s.is_ambiguous = False
-            if s.nudge and s.nudge.resolved_at is None:
-                s.nudge.resolved_at = datetime.utcnow()
+            _set_user_category(s, category, source="learned")
             applied += 1
     db.commit()
     db.refresh(txn)
