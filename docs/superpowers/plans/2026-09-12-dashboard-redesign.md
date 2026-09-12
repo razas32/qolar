@@ -201,7 +201,6 @@ def test_categories_have_stable_color_index(client, category):
     second = {c["name"]: c["color_index"] for c in client.get("/categories").json()}
     assert first == second
     assert all(0 <= i < 12 for i in first.values())
-    assert first["Coffee"] != first["Groceries"] or True  # collisions allowed, but must be ints
 ```
 
 Run: `cd api && .venv/bin/pytest tests/test_categories.py -v`
