@@ -100,7 +100,7 @@ export function ConnectClient({ me, accounts }: { me: Me; accounts: Account[] })
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Connect</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Accounts</h1>
         <p className="text-sm text-muted-foreground">Your bank, and the chat Qolar uses to ask you questions.</p>
       </div>
 
