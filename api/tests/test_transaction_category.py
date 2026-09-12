@@ -1,3 +1,5 @@
+import uuid as _uuid
+
 from app.models import MerchantOverride
 
 
@@ -48,3 +50,22 @@ def test_unknown_category_400(client, mk_txn):
     t = mk_txn()
     r = client.put(f"/plaid/transactions/{t.id}/category", json={"category": "Nope"})
     assert r.status_code == 400
+
+
+def test_bulk_sets_only_owned_ids(client, db, category, mk_txn):
+    category("Coffee")
+    a, b = mk_txn(day=1), mk_txn(day=2)
+    stranger = str(_uuid.uuid4())
+    r = client.post("/plaid/transactions/bulk-category", json={"transaction_ids": [str(a.id), str(b.id), stranger], "category": "Coffee"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"updated": 2}
+    db.expire_all()
+    assert db.get(type(a), a.id).category_source == "user"
+    assert db.get(type(b), b.id).category == "Coffee"
+
+
+def test_bulk_rejects_over_500(client, category):
+    category("Coffee")
+    ids = [str(_uuid.uuid4()) for _ in range(501)]
+    r = client.post("/plaid/transactions/bulk-category", json={"transaction_ids": ids, "category": "Coffee"})
+    assert r.status_code == 422

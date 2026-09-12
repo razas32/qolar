@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -224,6 +224,25 @@ async def set_transaction_category(
     db.commit()
     db.refresh(txn)
     return {**_serialize(txn, _accounts_by_id(db, user)), "merchant_siblings": len(siblings), "applied": applied}
+
+
+class BulkCategory(BaseModel):
+    transaction_ids: list[uuid.UUID] = Field(min_length=1, max_length=500)
+    category: str
+
+
+@router.post("/transactions/bulk-category")
+async def bulk_category(body: BulkCategory, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Set one category on many transactions the user picked explicitly.
+    Ids that aren't theirs are ignored. No merchant rule is written."""
+    category = find_category(db, user, body.category)
+    if category is None:
+        raise HTTPException(status_code=400, detail="unknown category")
+    rows = _user_transactions(db, user).filter(Transaction.id.in_(body.transaction_ids)).all()
+    for t in rows:
+        _set_user_category(t, category)
+    db.commit()
+    return {"updated": len(rows)}
 
 
 @router.post("/webhook")
