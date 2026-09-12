@@ -3,6 +3,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from plaid.model.accounts_get_request import AccountsGetRequest
@@ -16,8 +17,8 @@ from app.auth import current_user
 from app.config import settings
 from app.db import get_db
 from app.plaid_client import client
-from app.models import Account, Item, Transaction, User
-from app.categorize import find_category
+from app.models import Account, Category, Item, Transaction, User
+from app.categorize import find_category, merchant_key
 from app.nudge import learn_override
 from app.sync import sync_item_transactions
 from app.security import verify_plaid_webhook
@@ -165,14 +166,41 @@ async def list_transactions(user: User = Depends(current_user), db: Session = De
 
 class SetCategory(BaseModel):
     category: str
+    apply_to_merchant: bool = False
+
+
+def _set_user_category(txn: Transaction, category: Category) -> None:
+    txn.category_id = category.id
+    txn.category_source = "user"
+    txn.category = category.name
+    txn.is_ambiguous = False
+    if txn.nudge and txn.nudge.resolved_at is None:
+        txn.nudge.resolved_at = datetime.utcnow()
+
+
+def _merchant_siblings(db: Session, user: User, txn: Transaction) -> list[Transaction]:
+    """Other transactions of this user from the same merchant that the user
+    hasn't set by hand. Normalization happens in Python (merchant_key), so we
+    pre-filter loosely and compare keys here."""
+    key = merchant_key(txn.merchant_name, txn.description)
+    if not key:
+        return []
+    rows = (
+        _user_transactions(db, user)
+        .filter(Transaction.id != txn.id)
+        .filter(or_(Transaction.category_source.is_(None), Transaction.category_source != "user"))
+        .all()
+    )
+    return [t for t in rows if merchant_key(t.merchant_name, t.description) == key]
 
 
 @router.put("/transactions/{transaction_id}/category")
 async def set_transaction_category(
     transaction_id: uuid.UUID, body: SetCategory, user: User = Depends(current_user), db: Session = Depends(get_db)
 ):
-    """The user says what this was. Sets it, and writes a `user` override for
-    the merchant so it outranks everything else from now on."""
+    """The user says what this was. With `apply_to_merchant`, also remember
+    the merchant (a `user` override) and relabel every other transaction from
+    it that the user hasn't set by hand."""
     txn = _user_transactions(db, user).filter(Transaction.id == transaction_id).first()
     if txn is None:
         raise HTTPException(status_code=404, detail="transaction not found")
@@ -180,16 +208,22 @@ async def set_transaction_category(
     if category is None:
         raise HTTPException(status_code=400, detail="unknown category")
 
-    txn.category_id = category.id
-    txn.category_source = "user"
-    txn.category = category.name
-    txn.is_ambiguous = False
-    learn_override(db, user, txn, category, source="user")
-    if txn.nudge and txn.nudge.resolved_at is None:
-        txn.nudge.resolved_at = datetime.utcnow()
+    siblings = _merchant_siblings(db, user, txn)
+    _set_user_category(txn, category)
+    applied = 0
+    if body.apply_to_merchant:
+        learn_override(db, user, txn, category, source="user")
+        for s in siblings:
+            s.category_id = category.id
+            s.category = category.name
+            s.category_source = "learned"
+            s.is_ambiguous = False
+            if s.nudge and s.nudge.resolved_at is None:
+                s.nudge.resolved_at = datetime.utcnow()
+            applied += 1
     db.commit()
     db.refresh(txn)
-    return _serialize(txn, _accounts_by_id(db, user))
+    return {**_serialize(txn, _accounts_by_id(db, user)), "merchant_siblings": len(siblings), "applied": applied}
 
 
 @router.post("/webhook")
