@@ -15,11 +15,12 @@ the transaction.
      environment — you're on the free trial with up to 10 live connections)
    - `TELEGRAM_BOT_TOKEN` — create a bot via [@BotFather](https://t.me/BotFather),
      `/newbot`, copy the token
-   - `TELEGRAM_CHAT_ID` — message your new bot once, then hit
-     `https://api.telegram.org/bot<TOKEN>/getUpdates` to find your chat id
-   - `TELEGRAM_WEBHOOK_SECRET` / `SETUP_SECRET` — make up two random strings
-     (e.g. `openssl rand -hex 32`) — these keep strangers who find your ngrok
-     URL from triggering your setup endpoints or spoofing bot replies
+   - `TELEGRAM_WEBHOOK_SECRET` — a random string (`openssl rand -hex 32`) so
+     only Telegram can hit the bot webhook
+   - `CLERK_JWKS_URL` / `CLERK_ISSUER` — from the Clerk dashboard (API keys →
+     Frontend API URL; JWKS is `<issuer>/.well-known/jwks.json`)
+   - `CLERK_AUTHORIZED_PARTIES_RAW` — comma-separated origins allowed to call
+     the API, e.g. `https://qolar.app,http://localhost:3100`
    - `ENCRYPTION_KEY` — generate with
      `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
      — encrypts the Plaid access token at rest in Postgres
@@ -69,10 +70,9 @@ the transaction.
 - `/cron/sync` runs daily (Hobby plan minimum) as the fallback for Plaid's
   transactions webhook.
 
-4. Link an account: call `POST /plaid/link-token` and `POST /plaid/exchange-token`
-   with header `X-Qolar-Setup-Secret: <SETUP_SECRET>`. Use the returned
-   `link_token` with Plaid's hosted Link flow (or Plaid's quickstart HTML) to
-   get a `public_token` for the exchange call.
+4. Link an account: sign in to the dashboard and use **Connect**. Every
+   `/plaid/*`, `/categories`, `/rules`, `/me` endpoint requires a Clerk
+   session JWT as `Authorization: Bearer …`; the dashboard attaches it for you.
 
 At that point new transactions from ambiguous merchants should trigger a
 Telegram message, and replying should update the transaction's category.

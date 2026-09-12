@@ -1,22 +1,32 @@
 # Qolar — web
 
-Next.js 16 dashboard, served from Vercel at **https://qolar.app** behind HTTP
-Basic Auth. Talks to the API at https://api.qolar.app (server-side only).
+Next.js 16 dashboard, served from Vercel at **https://qolar.app**. Sign-in
+is Clerk (`@clerk/nextjs` v7). Talks to the API at https://api.qolar.app
+(server-side only).
+
+## Auth
+
+`proxy.ts` (Next 16's middleware) runs `clerkMiddleware()`; every page calls
+`requireUser()` (`lib/require-user.ts`), which redirects to `/sign-in`. Sign-in
+and sign-up pages live at `app/sign-in` / `app/sign-up`.
 
 ## How it talks to the API
 
-A server component (`app/page.tsx`) calls `GET /plaid/transactions` on the
-FastAPI backend using two **server-side** env vars — `API_BASE_URL` and
-`SETUP_SECRET` — via `lib/api.ts`. Neither is ever sent to the browser.
+Server components call the FastAPI backend via `lib/api.ts`, which attaches the
+signed-in user's Clerk session JWT as `Authorization: Bearer …`. The API
+verifies it against Clerk's JWKS and scopes every query to that user. Client
+components go through `app/api/proxy/[...path]` (an allowlisted route handler
+that forwards the same token). `API_BASE_URL` is server-side only.
 
-`proxy.ts` (Next 16's middleware) gates every route with Basic Auth
-(`DASHBOARD_USER` / `DASHBOARD_PASSWORD`) and fails closed if unset, since a
-Vercel deploy is public by default and this page shows real bank data.
+Env: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (from the Clerk
+dashboard, app "Qolar"), `API_BASE_URL`, and the `NEXT_PUBLIC_CLERK_SIGN_*_URL`
+vars. Currently on Clerk's dev instance (`pk_test_…`); switch to `pk_live_…`
+plus Clerk's DNS records on qolar.app before inviting people.
 
 ## Local dev
 
 ```
-cp .env.example .env.local   # fill in: API_BASE_URL (tunnel), SETUP_SECRET (from api/.env), user/password
+cp .env.example .env.local   # fill in: API_BASE_URL (http://localhost:8000), Clerk keys
 npm install
 npm run dev -- --port 3100   # 3000 is usually taken on this machine
 ```

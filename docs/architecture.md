@@ -4,8 +4,15 @@
 
 - **api/** — FastAPI + Postgres. Owns all state. Talks to Plaid (bank data),
   Telegram (nudges), and optionally Anthropic (categorization).
-- **web/** — Next.js dashboard on Vercel. Stateless; calls `api/` server-side
-  with a setup secret that never reaches the browser. Gated by Basic Auth.
+- **web/** — Next.js dashboard on Vercel. Stateless; Clerk handles sign-in,
+  and every call to `api/` carries the user's Clerk session JWT.
+- **Users (since 2026-09-12):** multi-tenant. `users.clerk_user_id` is the
+  identity; items, categories, mappings, overrides, synonyms and the Telegram
+  chat are all per-user. The API verifies the Clerk JWT (JWKS, `iss`, `azp`)
+  in `app/auth.py` and creates the `users` row on first request. Each user
+  links their own Telegram chat via a 15-minute `/start <code>` deep link
+  (`/me/telegram/link-code`). Legacy single-user data was moved onto the
+  owner's account with `scripts/claim_legacy.py`.
 - **Hosting (since 2026-09-05):** everything is on Vercel, no laptop involved.
   - `api/` → Vercel project `qolar-api`, zero-config FastAPI (entrypoint
     `app/main.py`), Python 3.13, at **https://api.qolar.app**. Daily
@@ -74,7 +81,8 @@ skipped and nudge replies must roughly match a category name.
 
 ## Security posture (dev)
 
-- Setup endpoints: `X-Qolar-Setup-Secret` (constant-time compare).
+- All user endpoints: Clerk RS256 JWT, verified against `CLERK_JWKS_URL`,
+  issuer + authorized parties checked. Cron: `Authorization: Bearer $CRON_SECRET`.
 - Plaid webhook: JWT signature + body hash verified per request; keys not cached.
 - Telegram webhook: secret token header + sender chat-id check.
 - Plaid access tokens encrypted at rest (Fernet). Losing `ENCRYPTION_KEY`
