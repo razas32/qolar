@@ -1,76 +1,53 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CategoryPicker } from "@/components/category-picker";
-import type { Transaction } from "@/lib/api";
+import { MerchantAvatar } from "@/components/merchant-avatar";
+import { colorFor } from "@/lib/category-color";
+import type { Category, Transaction } from "@/lib/api";
 import { formatDate, isCredit, money, sourceLabel } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
-type Props = {
-  transactions: Transaction[];
-  categories: { id: string; name: string }[];
-  showAccount?: boolean;
-};
+export type TableProps = { transactions: Transaction[]; categories: Category[]; showAccount?: boolean };
 
-export function TransactionsTable({ transactions, categories, showAccount = true }: Props) {
+export function TransactionRow({ t, categories, showAccount }: { t: Transaction; categories: Category[]; showAccount: boolean }) {
+  const merchant = t.merchant_name ?? t.description ?? "Unknown merchant";
+  return (
+    <li className={cn("flex items-center gap-3 px-4 py-3", t.nudge_pending && "bg-primary/5")}>
+      <MerchantAvatar name={merchant} color={colorFor(t.category, categories)} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate font-medium">{merchant}</span>
+          {t.pending && <Badge variant="outline" className="text-[10px]">pending</Badge>}
+          {t.nudge_pending && <Badge variant="secondary" className="text-[10px]">asked on Telegram</Badge>}
+        </div>
+        <div className="truncate text-xs text-muted-foreground">
+          {formatDate(t.date)}
+          {showAccount && t.account ? ` · ${t.account}` : ""}
+          {t.category_source ? ` · ${sourceLabel[t.category_source] ?? t.category_source}` : ""}
+        </div>
+      </div>
+      <CategoryPicker transactionId={t.id} value={t.category} merchant={merchant} categories={categories} />
+      <span className={cn("w-24 text-right tabular-nums", isCredit(t.amount) && "text-income")}>
+        {isCredit(t.amount) ? "+" : ""}
+        {money(t.amount)}
+      </span>
+    </li>
+  );
+}
+
+export function TransactionsTable({ transactions, categories, showAccount = true }: TableProps) {
   if (transactions.length === 0) {
-    return (
-      <Card className="p-8 text-center text-sm text-muted-foreground">Nothing here for this filter.</Card>
-    );
+    return <Card className="p-10 text-center text-sm text-muted-foreground">Nothing here for this filter.</Card>;
   }
   return (
-    <Card className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[90px]">Date</TableHead>
-            <TableHead>Merchant</TableHead>
-            {showAccount && <TableHead className="hidden md:table-cell">Account</TableHead>}
-            <TableHead>Category</TableHead>
-            <TableHead className="hidden w-[110px] md:table-cell">Set by</TableHead>
-            <TableHead className="text-right">Amount</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {transactions.map((t) => (
-            <TableRow key={t.id} className={t.nudge_pending ? "bg-amber-50/60 dark:bg-amber-900/10" : undefined}>
-              <TableCell className="whitespace-nowrap text-muted-foreground">{formatDate(t.date)}</TableCell>
-              <TableCell>
-                <div className="font-medium">
-                  {t.merchant_name ?? t.description ?? <span className="text-muted-foreground">Unknown merchant</span>}
-                </div>
-                {t.merchant_name && t.description && t.description !== t.merchant_name && (
-                  <div className="text-xs text-muted-foreground">{t.description}</div>
-                )}
-                {t.pending && (
-                  <Badge variant="outline" className="mt-1 text-[10px]">
-                    pending
-                  </Badge>
-                )}
-              </TableCell>
-              {showAccount && (
-                <TableCell className="hidden text-xs text-muted-foreground md:table-cell">{t.account ?? "—"}</TableCell>
-              )}
-              <TableCell>
-                <div className="flex items-center gap-2">
-                  <CategoryPicker transactionId={t.id} value={t.category} categories={categories} compact />
-                  {t.nudge_pending && (
-                    <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100 dark:bg-amber-900/40 dark:text-amber-200">
-                      asked on Telegram
-                    </Badge>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
-                {t.category_source ? sourceLabel[t.category_source] ?? t.category_source : "—"}
-              </TableCell>
-              <TableCell className={`text-right tabular-nums ${isCredit(t.amount) ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-                {isCredit(t.amount) ? "+" : ""}
-                {money(t.amount)}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <Card className="overflow-hidden p-0">
+      <ul className="divide-y divide-border">
+        {transactions.map((t) => (
+          <TransactionRow key={t.id} t={t} categories={categories} showAccount={showAccount} />
+        ))}
+      </ul>
     </Card>
   );
 }

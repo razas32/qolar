@@ -2,60 +2,44 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+import { CategoryChip } from "@/components/category-chip";
+import { askApplyToMerchant } from "@/components/apply-toast";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { colorFor } from "@/lib/category-color";
+import { setCategory } from "@/lib/client-api";
 
-type Props = {
-  transactionId: string;
-  value: string | null;
-  categories: { id: string; name: string }[];
-  /** Compact trigger styling for table cells. */
-  compact?: boolean;
-};
+type Cat = { id: string; name: string; color_index: number };
+type Props = { transactionId: string; value: string | null; merchant: string; categories: Cat[] };
 
-const NONE = "__none__";
-
-export function CategoryPicker({ transactionId, value, categories, compact }: Props) {
+export function CategoryPicker({ transactionId, value, merchant, categories }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
-  async function onChange(name: string) {
-    if (name === NONE || name === value) return;
-    setError(null);
-    const res = await fetch(`/api/proxy/plaid/transactions/${transactionId}/category`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category: name }),
-    });
-    if (!res.ok) {
-      setError("Couldn't save");
-      return;
+  async function pick(name: string) {
+    setOpen(false);
+    if (name === value) return;
+    try {
+      const r = await setCategory(transactionId, name);
+      startTransition(() => router.refresh());
+      askApplyToMerchant({ transactionId, category: name, merchant, siblings: r.merchant_siblings, onApplied: () => router.refresh() });
+    } catch {
+      toast.error("Couldn't save category");
     }
-    startTransition(() => router.refresh());
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <Select value={value ?? NONE} onValueChange={(v) => v && onChange(v)} disabled={pending}>
-        <SelectTrigger
-          size={compact ? "sm" : "default"}
-          className={compact ? "h-7 min-w-[9rem] text-xs" : "min-w-[12rem]"}
-          aria-label="Category"
-        >
-          <SelectValue placeholder="Uncategorized" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={NONE} disabled>
-            Uncategorized
-          </SelectItem>
-          {categories.map((c) => (
-            <SelectItem key={c.id} value={c.name}>
-              {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {error && <span className="text-xs text-destructive">{error}</span>}
-    </div>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger disabled={pending} render={<CategoryChip name={value} categories={categories} onClick={() => setOpen(true)} />} />
+      <DropdownMenuContent align="start" className="max-h-80 w-56 overflow-y-auto">
+        {categories.map((c) => (
+          <DropdownMenuItem key={c.id} onClick={() => pick(c.name)} className="gap-2">
+            <span className="size-2 rounded-full" style={{ background: colorFor(c.name, categories) }} />
+            {c.name}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

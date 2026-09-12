@@ -10,6 +10,7 @@ import { apiBase } from "@/lib/api";
 
 const ALLOW: { method: string; pattern: RegExp }[] = [
   { method: "PUT", pattern: /^plaid\/transactions\/[0-9a-f-]{36}\/category$/ },
+  { method: "POST", pattern: /^plaid\/transactions\/bulk-category$/ },
   { method: "POST", pattern: /^plaid\/link-token$/ },
   { method: "POST", pattern: /^plaid\/exchange-token$/ },
   { method: "POST", pattern: /^plaid\/sync$/ },
