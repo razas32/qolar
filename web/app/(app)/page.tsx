@@ -75,7 +75,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Spent" value={money(cur.spent)} delta={delta(cur.spent, prev.spent)} />
-        <StatCard label="Income" value={money(cur.income)} delta={delta(cur.income, prev.income)} tone="income" />
+        <StatCard label="Income" value={money(cur.income)} delta={delta(cur.income, prev.income)} tone="income" goodWhenUp />
         <StatCard label="Net" value={`${cur.net < 0 ? "−" : ""}${money(cur.net)}`} hint="income minus spend" />
         <StatCard label="Unsorted" value={String(unsorted)} hint={unsorted ? "tap to review" : "all sorted"} href="/review" />
       </div>
@@ -85,7 +85,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
           <TrendChart data={monthlyTotals(scoped, month, 6)} selected={month} />
         </Panel>
         <Panel title="By category" className="lg:col-span-5">
-          <CategoryDonut data={byCategory(rows)} previous={byCategory(prevRows)} categories={categories} linkBase={`/transactions${qs()}`} />
+          <CategoryDonut data={byCategory(rows)} previous={byCategory(prevRows)} categories={categories} linkBase={`/transactions${qs()}`} total={cur.spent} />
         </Panel>
         <Panel title="Cumulative spend" className="lg:col-span-7">
           <CumulativeChart current={cumulativeByDay(rows, month)} previous={cumulativeByDay(prevRows, shiftMonth(month, -1))} today={today} />

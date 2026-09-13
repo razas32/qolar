@@ -12,9 +12,20 @@ import { cn } from "@/lib/utils";
 type Slice = { name: string; spent: number; count: number; share: number };
 type Cat = { name: string; color_index: number };
 
-export function CategoryDonut({ data, previous, categories, linkBase }: { data: Slice[]; previous: Slice[]; categories: Cat[]; linkBase: string }) {
+export function CategoryDonut({
+  data,
+  previous,
+  categories,
+  linkBase,
+  total,
+}: {
+  data: Slice[];
+  previous: Slice[];
+  categories: Cat[];
+  linkBase: string;
+  total: number;
+}) {
   const [hover, setHover] = useState<string | null>(null);
-  const total = data.reduce((s, d) => s + d.spent, 0);
   const prev = new Map(previous.map((p) => [p.name, p.spent]));
   const href = (name: string) => {
     const sep = linkBase.includes("?") ? "&" : "?";

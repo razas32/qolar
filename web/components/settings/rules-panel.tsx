@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CategoryChip } from "@/components/category-chip";
 import type { Category, Rules } from "@/lib/api";
 
 const ASK = "__ask__";
@@ -71,12 +72,16 @@ export function RulesPanel({ overrides, merchantTypes, categories }: Props) {
           <Input value={newMerchant} onChange={(e) => setNewMerchant(e.target.value)} placeholder="Merchant, e.g. Amazon" className="max-w-xs" />
           <Select value={newValue} onValueChange={(v) => setNewValue(v ?? "")}>
             <SelectTrigger className="min-w-[12rem]">
-              <SelectValue placeholder="Category or always ask" />
+              <SelectValue placeholder="Category or always ask">
+                {newValue === "" ? undefined : newValue === ASK ? "Always ask me" : <CategoryChip name={newValue} categories={categories} />}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ASK}>Always ask me</SelectItem>
               {categories.map((c) => (
-                <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                <SelectItem key={c.id} value={c.name}>
+                  <CategoryChip name={c.name} categories={categories} />
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -110,12 +115,16 @@ export function RulesPanel({ overrides, merchantTypes, categories }: Props) {
                   <div className="flex items-center gap-3">
                     <Select value={o.always_ask ? ASK : o.category ?? ""} onValueChange={(v) => v && save(o.merchant, v)}>
                       <SelectTrigger size="sm" className="min-w-[11rem]">
-                        <SelectValue />
+                        <SelectValue>
+                          {o.always_ask ? "Always ask me" : <CategoryChip name={o.category} categories={categories} />}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={ASK}>Always ask me</SelectItem>
                         {categories.map((c) => (
-                          <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                          <SelectItem key={c.id} value={c.name}>
+                            <CategoryChip name={c.name} categories={categories} />
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

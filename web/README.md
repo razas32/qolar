@@ -2,7 +2,9 @@
 
 Next.js 16 dashboard, served from Vercel at **https://qolar.app**. Sign-in
 is Clerk (`@clerk/nextjs` v7). Talks to the API at https://api.qolar.app
-(server-side only).
+(server-side only). Dark by default (`next-themes`), with a sidebar shell in
+`app/(app)/layout.tsx`. `/review` is the inbox for uncategorized / ambiguous
+/ nudged transactions, worked keyboard-first.
 
 ## Auth
 
@@ -29,6 +31,13 @@ plus Clerk's DNS records on qolar.app before inviting people.
 cp .env.example .env.local   # fill in: API_BASE_URL (http://localhost:8000), Clerk keys
 npm install
 npm run dev -- --port 3100   # 3000 is usually taken on this machine
+```
+
+## Tests
+
+```
+npm test              # Vitest — lib/stats.ts, lib/category-color.ts, etc.
+cd ../api && .venv/bin/pytest
 ```
 
 ## Deploy

@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CategoryChip } from "@/components/category-chip";
 import type { Category } from "@/lib/api";
 
 const NONE = "__none__";
@@ -105,7 +106,7 @@ export function CategoriesPanel({ categories }: { categories: Category[] }) {
                       <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
                     </form>
                   ) : (
-                    c.name
+                    <CategoryChip name={c.name} categories={categories} />
                   )}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">{c.transaction_count}</TableCell>
@@ -114,12 +115,20 @@ export function CategoriesPanel({ categories }: { categories: Category[] }) {
                     <div className="flex items-center justify-end gap-2">
                       <Select value={moveTo} onValueChange={(v) => setMoveTo(v ?? NONE)}>
                         <SelectTrigger size="sm" className="min-w-[10rem]">
-                          <SelectValue placeholder="Move transactions to…" />
+                          <SelectValue placeholder="Move transactions to…">
+                            {moveTo === NONE ? undefined : (
+                              <>
+                                Move to <CategoryChip name={categories.find((o) => o.id === moveTo)?.name ?? null} categories={categories} />
+                              </>
+                            )}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value={NONE}>Leave uncategorized</SelectItem>
                           {categories.filter((o) => o.id !== c.id).map((o) => (
-                            <SelectItem key={o.id} value={o.id}>Move to {o.name}</SelectItem>
+                            <SelectItem key={o.id} value={o.id}>
+                              Move to <CategoryChip name={o.name} categories={categories} />
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

@@ -5,7 +5,12 @@
 - **api/** — FastAPI + Postgres. Owns all state. Talks to Plaid (bank data),
   Telegram (nudges), and optionally Anthropic (categorization).
 - **web/** — Next.js dashboard on Vercel. Stateless; Clerk handles sign-in,
-  and every call to `api/` carries the user's Clerk session JWT.
+  and every call to `api/` carries the user's Clerk session JWT. Sidebar
+  shell in `app/(app)/layout.tsx`; dark by default via `next-themes`.
+  Overview maths lives in `lib/stats.ts` (Vitest). A single category edit no
+  longer writes a merchant rule; the apply-to-merchant toast (PUT with
+  `apply_to_merchant`) does. Bulk edits use `POST /plaid/transactions/bulk-category`.
+  `/review` is the inbox for uncategorized / ambiguous / nudged transactions.
 - **Users (since 2026-09-12):** multi-tenant. `users.clerk_user_id` is the
   identity; items, categories, mappings, overrides, synonyms and the Telegram
   chat are all per-user. The API verifies the Clerk JWT (JWKS, `iss`, `azp`)

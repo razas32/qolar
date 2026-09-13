@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CategoryChip } from "@/components/category-chip";
 import type { Category, Rules } from "@/lib/api";
 
 function pretty(code: string, primary: string | null) {
@@ -67,11 +68,15 @@ export function MappingsPanel({ mappings, categories }: { mappings: Rules["mappi
                       <TableCell>
                         <Select value={m.category ?? ""} onValueChange={(v) => v && save(m.plaid_code, v)}>
                           <SelectTrigger size="sm" className="min-w-[12rem]">
-                            <SelectValue placeholder={isGroup ? "Choose…" : "Same as group"} />
+                            <SelectValue placeholder={isGroup ? "Choose…" : "Same as group"}>
+                              {m.category ? <CategoryChip name={m.category} categories={categories} /> : undefined}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {categories.map((c) => (
-                              <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                              <SelectItem key={c.id} value={c.name}>
+                                <CategoryChip name={c.name} categories={categories} />
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
