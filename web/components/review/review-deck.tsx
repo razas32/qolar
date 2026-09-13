@@ -40,6 +40,13 @@ export function ReviewDeck({ queue, categories }: { queue: Transaction[]; catego
       const merchant = current.merchant_name ?? current.description ?? "this merchant";
       try {
         const r = await setCategory(current.id, name);
+        setItems((list) =>
+          list.map((t) =>
+            t.id === current.id
+              ? { ...t, category: name, category_source: "user", is_ambiguous: false, nudge_pending: false }
+              : t,
+          ),
+        );
         setIndex((i) => i + 1);
         setQuery("");
         askApplyToMerchant({ transactionId: current.id, category: name, merchant, siblings: r.merchant_siblings, onApplied: () => router.refresh() });
@@ -114,7 +121,7 @@ export function ReviewDeck({ queue, categories }: { queue: Transaction[]; catego
           <div className="flex flex-wrap gap-2">
             {visible.map((c, i) => (
               <CategoryChip key={c.id} name={c.name} categories={categories} size="md" onClick={() => pick(c.name)}
-                hint={i < 9 ? String(i + 1) : undefined} className={i < 9 ? "pl-2" : undefined} />
+                hint={i < 9 ? String(i + 1) : undefined} className={i < 9 ? "pl-2" : undefined} disabled={busy} />
             ))}
           </div>
           <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
