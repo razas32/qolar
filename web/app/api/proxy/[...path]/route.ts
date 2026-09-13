@@ -27,7 +27,7 @@ const ALLOW: { method: string; pattern: RegExp }[] = [
 
 async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const { path } = await ctx.params;
-  const joined = path.map(decodeURIComponent).join("/");
+  const joined = path.join("/");
   const allowed = ALLOW.some((r) => r.method === req.method && r.pattern.test(joined));
   if (!allowed) return NextResponse.json({ detail: "not allowed" }, { status: 404 });
 

@@ -49,7 +49,14 @@ export function ReviewDeck({ queue, categories }: { queue: Transaction[]; catego
         );
         setIndex((i) => i + 1);
         setQuery("");
-        askApplyToMerchant({ transactionId: current.id, category: name, merchant, siblings: r.merchant_siblings, onApplied: () => router.refresh() });
+        askApplyToMerchant({
+          transactionId: current.id,
+          category: name,
+          merchant,
+          siblings: r.merchant_siblings,
+          merchantKey: r.merchant_key,
+          onApplied: () => router.refresh(),
+        });
         router.refresh();
       } catch {
         toast.error("Couldn't save");
@@ -61,9 +68,10 @@ export function ReviewDeck({ queue, categories }: { queue: Transaction[]; catego
   );
 
   const skip = useCallback(() => {
+    if (busy) return;
     setItems((list) => list.filter((_, i) => i !== index));
     setQuery("");
-  }, [index]);
+  }, [busy, index]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

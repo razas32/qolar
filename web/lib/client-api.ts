@@ -9,5 +9,17 @@ async function call<T>(path: string, method: "PUT" | "POST", body: unknown): Pro
 export const setCategory = (id: string, category: string, applyToMerchant = false) =>
   call<SetCategoryResult>(`plaid/transactions/${id}/category`, "PUT", { category, apply_to_merchant: applyToMerchant });
 
-export const bulkSetCategory = (ids: string[], category: string) =>
-  call<{ updated: number }>("plaid/transactions/bulk-category", "POST", { transaction_ids: ids, category });
+const BULK_CHUNK_SIZE = 500;
+
+export async function bulkSetCategory(ids: string[], category: string): Promise<{ updated: number }> {
+  let updated = 0;
+  for (let i = 0; i < ids.length; i += BULK_CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + BULK_CHUNK_SIZE);
+    const res = await call<{ updated: number }>("plaid/transactions/bulk-category", "POST", {
+      transaction_ids: chunk,
+      category,
+    });
+    updated += res.updated;
+  }
+  return { updated };
+}

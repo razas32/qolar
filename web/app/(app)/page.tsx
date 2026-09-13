@@ -77,12 +77,12 @@ export default async function Overview({ searchParams }: { searchParams: Promise
         <StatCard label="Spent" value={money(cur.spent)} delta={delta(cur.spent, prev.spent)} />
         <StatCard label="Income" value={money(cur.income)} delta={delta(cur.income, prev.income)} tone="income" goodWhenUp />
         <StatCard label="Net" value={`${cur.net < 0 ? "−" : ""}${money(cur.net)}`} hint="income minus spend" />
-        <StatCard label="Unsorted" value={String(unsorted)} hint={unsorted ? "tap to review" : "all sorted"} href="/review" />
+        <StatCard label="Unsorted" value={String(unsorted)} hint={unsorted > 0 ? `${unsorted} this month · review all` : "all sorted"} href="/review" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-12">
         <Panel title="Spend trend" className="lg:col-span-7">
-          <TrendChart data={monthlyTotals(scoped, month, 6)} selected={month} />
+          <TrendChart data={monthlyTotals(scoped, month, 6)} selected={month} linkBase={account !== "all" ? `/?account=${account}` : "/"} />
         </Panel>
         <Panel title="By category" className="lg:col-span-5">
           <CategoryDonut data={byCategory(rows)} previous={byCategory(prevRows)} categories={categories} linkBase={`/transactions${qs()}`} total={cur.spent} />

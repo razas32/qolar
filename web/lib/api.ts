@@ -33,7 +33,7 @@ export type Account = {
 
 export type Category = { id: string; name: string; transaction_count: number; color_index: number };
 
-export type SetCategoryResult = Transaction & { merchant_siblings: number; applied: number };
+export type SetCategoryResult = Transaction & { merchant_siblings: number; applied: number; merchant_key: string };
 
 export type Rules = {
   overrides: {

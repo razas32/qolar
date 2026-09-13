@@ -23,7 +23,14 @@ export function CategoryPicker({ transactionId, value, merchant, categories }: P
     try {
       const r = await setCategory(transactionId, name);
       startTransition(() => router.refresh());
-      askApplyToMerchant({ transactionId, category: name, merchant, siblings: r.merchant_siblings, onApplied: () => router.refresh() });
+      askApplyToMerchant({
+        transactionId,
+        category: name,
+        merchant,
+        siblings: r.merchant_siblings,
+        merchantKey: r.merchant_key,
+        onApplied: () => router.refresh(),
+      });
     } catch {
       toast.error("Couldn't save category");
     }

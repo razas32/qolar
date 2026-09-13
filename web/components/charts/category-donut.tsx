@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Cell, Pie, PieChart } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
@@ -25,6 +26,7 @@ export function CategoryDonut({
   linkBase: string;
   total: number;
 }) {
+  const router = useRouter();
   const [hover, setHover] = useState<string | null>(null);
   const prev = new Map(previous.map((p) => [p.name, p.spent]));
   const href = (name: string) => {
@@ -40,7 +42,8 @@ export function CategoryDonut({
           <PieChart>
             <ChartTooltip content={<ChartTooltipContent hideIndicator formatter={(v) => money(Number(v))} />} />
             <Pie data={data} dataKey="spent" nameKey="name" innerRadius={58} outerRadius={82} paddingAngle={2} strokeWidth={0}
-                 onMouseEnter={(_, i) => setHover(data[i].name)} onMouseLeave={() => setHover(null)}>
+                 onMouseEnter={(_, i) => setHover(data[i].name)} onMouseLeave={() => setHover(null)}
+                 onClick={(_, i) => router.push(href(data[i].name))} className="cursor-pointer">
               {data.map((d) => (
                 <Cell key={d.name} fill={colorFor(d.name, categories)} fillOpacity={hover && hover !== d.name ? 0.35 : 1} />
               ))}
