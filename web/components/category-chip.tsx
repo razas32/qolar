@@ -8,6 +8,7 @@ type Props = {
   categories: Cat[];
   size?: "sm" | "md";
   active?: boolean;
+  hint?: string;
 } & Omit<ComponentPropsWithRef<"button">, "name">;
 
 /**
@@ -16,7 +17,7 @@ type Props = {
  * onMouseDown/onKeyDown, type, disabled) — those all arrive as `...rest`/`ref` here and
  * must reach the actual DOM node, or the menu loses its anchor and keyboard/ARIA wiring.
  */
-export function CategoryChip({ name, categories, size = "sm", className, active, onClick, ref, ...rest }: Props) {
+export function CategoryChip({ name, categories, size = "sm", className, active, onClick, hint, ref, ...rest }: Props) {
   const color = colorFor(name, categories);
   const label = name ?? "Uncategorized";
   const classes = cn(
@@ -33,6 +34,7 @@ export function CategoryChip({ name, categories, size = "sm", className, active,
     return (
       <span className={classes}>
         {dot}
+        {hint && <span className="text-[10px] text-muted-foreground">{hint}</span>}
         {label}
       </span>
     );
@@ -41,6 +43,7 @@ export function CategoryChip({ name, categories, size = "sm", className, active,
   return (
     <button type="button" {...rest} ref={ref} onClick={onClick} className={classes}>
       {dot}
+      {hint && <span className="text-[10px] text-muted-foreground">{hint}</span>}
       {label}
     </button>
   );
