@@ -12,6 +12,7 @@ trap 'rm -rf "$STAGE"' EXIT
 
 rsync -a --exclude .venv --exclude __pycache__ --exclude '.env*' --exclude .git \
   --exclude link_test.html --exclude docker-compose.yml --exclude Dockerfile \
+  --exclude tests --exclude requirements-dev.txt \
   "$HERE/" "$STAGE/"
 cp -R "$HERE/.vercel" "$STAGE/.vercel"
 

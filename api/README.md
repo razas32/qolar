@@ -56,6 +56,18 @@ the transaction.
    WEBHOOK_BASE_URL=https://api.qolar.app DATABASE_URL=<neon url> python3 -m scripts.update_webhooks
    ```
 
+## Testing
+
+`pytest` and other dev-only tooling live in `requirements-dev.txt`, not in
+the runtime `requirements.txt` that ships to production. Install and run:
+```
+pip install -r requirements-dev.txt
+pytest -q
+```
+Tests require a local Postgres (see Setup) and refuse to run against
+anything else — `conftest.py` checks the host and database name before
+creating the test database.
+
 ## Production (Vercel + Neon)
 
 - Vercel project `qolar-api`; FastAPI is auto-detected from `app/main.py`,

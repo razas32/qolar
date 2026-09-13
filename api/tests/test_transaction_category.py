@@ -20,10 +20,11 @@ def test_sibling_count_excludes_user_set_rows(client, category, mk_txn):
     coffee = category("Coffee")
     food = category("Food")
     t = mk_txn(day=1)
-    mk_txn(day=2)                                  # auto / unset -> sibling
-    mk_txn(day=3, category=food, source="plaid")   # bank guess -> sibling
-    mk_txn(day=4, category=food, source="user")    # user-set -> not a sibling
-    mk_txn(merchant="Metro", day=5)                # other merchant
+    mk_txn(day=2)                                     # auto / unset -> sibling
+    mk_txn(day=3, category=food, source="plaid")      # bank guess -> sibling
+    mk_txn(day=4, category=food, source="user")       # user-set -> not a sibling
+    mk_txn(day=5, category=coffee, source="plaid")    # already in target category -> not a sibling
+    mk_txn(merchant="Metro", day=6)                   # other merchant
     r = client.put(f"/plaid/transactions/{t.id}/category", json={"category": "Coffee"})
     assert r.json()["merchant_siblings"] == 2
 
@@ -44,6 +45,14 @@ def test_apply_to_merchant_learns_and_relabels_siblings(client, db, category, mk
     assert db.get(type(keep), keep.id).category == "Food"
     ov = db.query(MerchantOverride).one()
     assert ov.merchant_key == "tim hortons" and ov.category_id == coffee.id and ov.source == "user"
+
+
+def test_response_includes_merchant_key(client, category, mk_txn):
+    category("Coffee")
+    t = mk_txn()
+    r = client.put(f"/plaid/transactions/{t.id}/category", json={"category": "Coffee"})
+    assert r.status_code == 200, r.text
+    assert r.json()["merchant_key"] == "tim hortons"
 
 
 def test_unknown_category_400(client, mk_txn):

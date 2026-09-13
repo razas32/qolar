@@ -178,10 +178,11 @@ def _set_user_category(txn: Transaction, category: Category, source: str = "user
         txn.nudge.resolved_at = datetime.utcnow()
 
 
-def _merchant_siblings(db: Session, user: User, txn: Transaction) -> list[Transaction]:
+def _merchant_siblings(db: Session, user: User, txn: Transaction, category: Category) -> list[Transaction]:
     """Other transactions of this user from the same merchant that the user
-    hasn't set by hand. Normalization happens in Python (merchant_key), so we
-    pre-filter loosely and compare keys here."""
+    hasn't set by hand and that aren't already in the target category.
+    Normalization happens in Python (merchant_key), so we pre-filter loosely
+    and compare keys here."""
     key = merchant_key(txn.merchant_name, txn.description)
     if not key:
         return []
@@ -189,6 +190,7 @@ def _merchant_siblings(db: Session, user: User, txn: Transaction) -> list[Transa
         _user_transactions(db, user)
         .filter(Transaction.id != txn.id)
         .filter(or_(Transaction.category_source.is_(None), Transaction.category_source != "user"))
+        .filter(or_(Transaction.category_id.is_(None), Transaction.category_id != category.id))
         .all()
     )
     return [t for t in rows if merchant_key(t.merchant_name, t.description) == key]
@@ -208,7 +210,7 @@ async def set_transaction_category(
     if category is None:
         raise HTTPException(status_code=400, detail="unknown category")
 
-    siblings = _merchant_siblings(db, user, txn)
+    siblings = _merchant_siblings(db, user, txn, category)
     _set_user_category(txn, category)
     applied = 0
     if body.apply_to_merchant:
@@ -218,7 +220,12 @@ async def set_transaction_category(
             applied += 1
     db.commit()
     db.refresh(txn)
-    return {**_serialize(txn, _accounts_by_id(db, user)), "merchant_siblings": len(siblings), "applied": applied}
+    return {
+        **_serialize(txn, _accounts_by_id(db, user)),
+        "merchant_siblings": len(siblings),
+        "applied": applied,
+        "merchant_key": merchant_key(txn.merchant_name, txn.description),
+    }
 
 
 class BulkCategory(BaseModel):

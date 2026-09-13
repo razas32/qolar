@@ -11,6 +11,10 @@ from app.config import settings
 
 # Point the app at the test database BEFORE app.db builds its engine.
 _main_url = sa.engine.make_url(settings.database_url)
+if _main_url.host not in ("localhost", "127.0.0.1"):
+    pytest.exit("tests only run against a local Postgres")
+if _main_url.database == "loonie_test":
+    pytest.exit("DATABASE_URL must not point at loonie_test")
 _test_url = _main_url.set(database="loonie_test")
 object.__setattr__(settings, "database_url", str(_test_url))
 
