@@ -35,7 +35,7 @@ export function TransactionRow({
           checked={!!selected}
           onCheckedChange={() => onToggle()}
           aria-label="Select transaction"
-          className="md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:data-[checked]:opacity-100"
+          className="md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-visible:opacity-100 md:data-[checked]:opacity-100"
         />
       )}
       <MerchantAvatar name={merchant} color={colorFor(t.category, categories)} />
@@ -72,6 +72,7 @@ export function TransactionsTable({ transactions, categories, showAccount = true
       }
       return n;
     });
+  const visibleSelected = transactions.filter((t) => selected.has(t.id)).map((t) => t.id);
   const allSelected = transactions.length > 0 && transactions.every((t) => selected.has(t.id));
   if (transactions.length === 0) {
     return <Card className="p-10 text-center text-sm text-muted-foreground">Nothing here for this filter.</Card>;
@@ -102,7 +103,7 @@ export function TransactionsTable({ transactions, categories, showAccount = true
           ))}
         </ul>
       </Card>
-      {selectable && <BulkBar ids={[...selected]} categories={categories} onDone={() => setSelected(new Set())} />}
+      {selectable && <BulkBar ids={visibleSelected} categories={categories} onDone={() => setSelected(new Set())} />}
     </>
   );
 }
