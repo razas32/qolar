@@ -47,7 +47,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
         />
       </div>
 
-      <TransactionsTable transactions={rows} categories={categories} showAccount={account === "all"} />
+      <TransactionsTable transactions={rows} categories={categories} showAccount={account === "all"} selectable />
 
       <p className="text-xs text-muted-foreground">
         Changing a category asks whether to apply it to the merchant&apos;s other transactions.
